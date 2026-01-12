@@ -56,21 +56,25 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  Local development:
+  Local development (auto-detect device):
     python -m colab_src.models.ssl.train --config configs/ssl_pretraining.yaml --epochs 50
   
-  Colab with custom data directory:
+  Colab (auto-detect device, uses GPU if available):
     python -m colab_src.models.ssl.train --config configs/ssl_pretraining.yaml \\
         --data-dir /content/drive/MyDrive/cardiometabolic-risk-colab/data/processed \\
-        --device cuda --epochs 50
+        --epochs 50
+  
+  Force CPU:
+    python -m colab_src.models.ssl.train --config configs/ssl_pretraining.yaml \\
+        --device cpu --epochs 50
         """
     )
     parser.add_argument('--config', type=str, default='configs/ssl_pretraining.yaml',
                        help='Path to config YAML')
     parser.add_argument('--data-dir', type=str, default=None,
                        help='Override data directory (Colab: /content/drive/MyDrive/.../data/processed)')
-    parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu',
-                       help='Device (cuda or cpu)')
+    parser.add_argument('--device', type=str, default='auto',
+                       help='Device: cuda, cpu, or auto (default: auto-detect GPU if available, else CPU)')
     parser.add_argument('--epochs', type=int, default=50,
                        help='Number of epochs')
     parser.add_argument('--batch-size', type=int, default=8,
@@ -91,9 +95,28 @@ Examples:
             config = get_default_config()
         
         # Override with command line args
-        config.device = args.device
         config.training.num_epochs = args.epochs
         config.training.batch_size = args.batch_size
+        
+        # CRITICAL: Auto-detect device with fallback to CPU
+        # If user requests CUDA but it's not available, fall back to CPU
+        if args.device == 'cuda':
+            if torch.cuda.is_available():
+                config.device = 'cuda'
+                logger.info(f"✅ CUDA available, using GPU: {torch.cuda.get_device_name(0)}")
+            else:
+                config.device = 'cpu'
+                logger.warning(f"⚠️  CUDA requested but not available, falling back to CPU")
+        elif args.device == 'cpu':
+            config.device = 'cpu'
+            logger.info(f"✅ Using CPU")
+        else:
+            # Auto-detect (default)
+            config.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            if torch.cuda.is_available():
+                logger.info(f"✅ Auto-detected GPU: {torch.cuda.get_device_name(0)}")
+            else:
+                logger.info(f"✅ Auto-detected CPU (no GPU available)")
         
         # CRITICAL: Override data directory if specified (Colab use case)
         if args.data_dir:
