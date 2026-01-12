@@ -210,6 +210,7 @@ def create_dataloaders(
     val_metadata_path: Union[str, Path],
     test_metadata_path: Optional[Union[str, Path]] = None,
     signal_array_path: Optional[Union[str, Path]] = None,
+    signal_dir: Optional[Union[str, Path]] = None,
     denoised_index_path: Optional[Union[str, Path]] = None,
     augmentation=None,
     batch_size: int = 8,
@@ -226,6 +227,7 @@ def create_dataloaders(
         val_metadata_path: Path to validation metadata parquet
         test_metadata_path: Path to test metadata parquet (optional)
         signal_array_path: Path to signal array numpy file
+        signal_dir: Directory containing individual signal files
         denoised_index_path: Path to denoised signal index JSON
         augmentation: Augmentation callable
         batch_size: Batch size
@@ -243,6 +245,7 @@ def create_dataloaders(
     train_dataset = PPGDataset(
         metadata_path=train_metadata_path,
         signal_array_path=signal_array_path,
+        signal_dir=signal_dir,
         denoised_index_path=denoised_index_path,
         augmentation=augmentation,
         normalize=True,
@@ -263,6 +266,7 @@ def create_dataloaders(
     val_dataset = PPGDataset(
         metadata_path=val_metadata_path,
         signal_array_path=signal_array_path,
+        signal_dir=signal_dir,
         denoised_index_path=denoised_index_path,
         augmentation=None,
         normalize=True,
@@ -283,6 +287,7 @@ def create_dataloaders(
         test_dataset = PPGDataset(
             metadata_path=test_metadata_path,
             signal_array_path=signal_array_path,
+            signal_dir=signal_dir,
             denoised_index_path=denoised_index_path,
             augmentation=None,
             normalize=True,

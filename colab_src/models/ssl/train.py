@@ -248,6 +248,7 @@ Examples:
             val_metadata_path=val_meta_path,
             test_metadata_path=test_meta_path,
             signal_array_path=None,
+            signal_dir=data_base / "denoised_signals",
             denoised_index_path=denoised_index_path,
             augmentation=augmentation,
             batch_size=config.training.batch_size,
