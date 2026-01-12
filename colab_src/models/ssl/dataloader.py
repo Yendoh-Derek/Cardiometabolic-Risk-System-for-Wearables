@@ -52,9 +52,27 @@ class PPGDataset(Dataset):
             device: Device for data ('cpu' or 'cuda')
             load_in_memory: Load all signals into memory
         """
-        # Load metadata
-        self.metadata_df = pd.read_parquet(metadata_path)
         self.metadata_path = Path(metadata_path)
+        
+        # Validate metadata file exists
+        if not self.metadata_path.exists():
+            raise FileNotFoundError(f"Metadata file not found: {self.metadata_path}")
+        
+        # Load metadata with error handling
+        try:
+            self.metadata_df = pd.read_parquet(self.metadata_path)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load parquet metadata from {self.metadata_path}: {e}")
+        
+        # Validate required columns
+        required_columns = ['global_segment_idx']
+        missing_columns = [col for col in required_columns if col not in self.metadata_df.columns]
+        if missing_columns:
+            raise ValueError(
+                f"Metadata missing required columns: {missing_columns}. "
+                f"Available columns: {list(self.metadata_df.columns)}"
+            )
+        
         self.device = device
         self.augmentation = augmentation
         self.normalize = normalize
@@ -91,7 +109,7 @@ class PPGDataset(Dataset):
         if load_in_memory:
             self._load_all_signals()
         
-        logger.info(f"PPGDataset initialized with {len(self)} samples")
+        logger.info(f"PPGDataset initialized: {len(self)} samples from {self.metadata_path}")
     
     def _load_all_signals(self):
         """Pre-load all signals into memory."""

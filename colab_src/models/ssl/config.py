@@ -82,6 +82,7 @@ class SSLConfig:
     
     # Environment
     project_root: Path = None
+    data_dir: Path = None  # Override data directory (Colab use case)
     device: str = "cpu"
     is_colab: bool = False
     checkpoint_dir: Path = None
@@ -143,30 +144,45 @@ class SSLConfig:
     
     @classmethod
     def from_yaml(cls, yaml_path: str) -> "SSLConfig":
-        """Load configuration from YAML file."""
-        with open(yaml_path, 'r') as f:
-            config_dict = yaml.safe_load(f)
+        """Load configuration from YAML file with error handling."""
+        try:
+            yaml_path_obj = Path(yaml_path)
+            if not yaml_path_obj.exists():
+                raise FileNotFoundError(f"Config file not found: {yaml_path}")
+            
+            with open(yaml_path, 'r') as f:
+                config_dict = yaml.safe_load(f)
+            
+            if config_dict is None:
+                raise ValueError(f"Config file is empty: {yaml_path}")
+            
+            # Parse nested configs
+            config = cls()
+            
+            if 'data' in config_dict:
+                config.data = DataConfig(**config_dict['data'])
+            if 'model' in config_dict:
+                config.model = ModelConfig(**config_dict['model'])
+            if 'loss' in config_dict:
+                config.loss = LossConfig(**config_dict['loss'])
+            if 'augmentation' in config_dict:
+                config.augmentation = AugmentationConfig(**config_dict['augmentation'])
+            if 'training' in config_dict:
+                config.training = TrainingConfig(**config_dict['training'])
+            if 'environment' in config_dict:
+                env = config_dict['environment']
+                config.is_colab = env.get('is_colab', config.is_colab)
+                config.device = env.get('device', config.device)
+                config.seed = env.get('seed', config.seed)
+            
+            return config
         
-        # Parse nested configs
-        config = cls()
-        
-        if 'data' in config_dict:
-            config.data = DataConfig(**config_dict['data'])
-        if 'model' in config_dict:
-            config.model = ModelConfig(**config_dict['model'])
-        if 'loss' in config_dict:
-            config.loss = LossConfig(**config_dict['loss'])
-        if 'augmentation' in config_dict:
-            config.augmentation = AugmentationConfig(**config_dict['augmentation'])
-        if 'training' in config_dict:
-            config.training = TrainingConfig(**config_dict['training'])
-        if 'environment' in config_dict:
-            env = config_dict['environment']
-            config.is_colab = env.get('is_colab', config.is_colab)
-            config.device = env.get('device', config.device)
-            config.seed = env.get('seed', config.seed)
-        
-        return config
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f"Failed to load config: {e}")
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML in {yaml_path}: {e}")
+        except Exception as e:
+            raise Exception(f"Unexpected error loading config from {yaml_path}: {e}")
     
     def to_yaml(self, yaml_path: str) -> None:
         """Save configuration to YAML file."""

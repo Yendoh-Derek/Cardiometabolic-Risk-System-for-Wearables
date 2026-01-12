@@ -1,41 +1,55 @@
-# CORE NUMERICAL STACK (Aligned for 2026 standards)
-numpy>=2.0.0,<2.3.0       # Required by OpenCV, JAX, and PyTensor
+# =========================
+# CORE NUMERICAL STACK
+# =========================
+numpy>=2.0,<2.3
 pandas>=2.2.2
-scipy>=1.14.0             # Updated to support NumPy 2.x
-scikit-learn>=1.5.0       # Updated for compatibility with modern stacks
+scipy>=1.11.0
+scikit-learn>=1.3.0
 
-# MIMIC-III AND PHYSIOLOGICAL TOOLS
-wfdb==4.1.2
+# =========================
+# PHYSIOLOGICAL & SIGNAL PROCESSING
+# =========================
+wfdb>=4.1.2
 neurokit2>=0.2.7
 PyWavelets>=1.4.1
 
-# GRADIENT BOOSTING AND DEEP LEARNING
+# =========================
+# GRADIENT BOOSTING & DEEP LEARNING
+# =========================
 xgboost>=2.0.0
 lightgbm>=4.1.0
-torch>=2.5.0              # Updated to ensure NumPy 2.x compatibility
-torchvision>=0.20.0
-torchaudio>=2.5.0
+torch>=2.1.0
+torchvision>=0.16.0
+torchaudio>=2.1.0
 
-# CLINICAL AND EXPERIMENT TRACKING
+# =========================
+# CLINICAL / EXPERIMENT TRACKING
+# =========================
 comorbidipy>=0.3.0
 mlflow>=2.9.0
 hydra-core>=1.3.0
 omegaconf>=2.3.0
 PyYAML>=6.0
 
+# =========================
 # DATA INFRASTRUCTURE
+# =========================
 pyarrow>=14.0.0
 fastparquet>=2023.10.0
 joblib>=1.3.0
 great-expectations>=0.18.0
 
-# VISUALIZATION AND EXPLAINABILITY
-matplotlib>=3.10.0        # Latest stable for 2026
+# =========================
+# VISUALIZATION & EXPLAINABILITY
+# =========================
+matplotlib>=3.8.0
 seaborn>=0.13.0
 plotly>=5.18.0
 shap>=0.44.0
 
-# DEPLOYMENT AND STATS
+# =========================
+# STATS & DEPLOYMENT
+# =========================
 statsmodels>=0.14.0
 fastapi>=0.108.0
 uvicorn[standard]>=0.25.0
@@ -47,14 +61,9 @@ requests>=2.31.0
 tqdm>=4.66.0
 python-dateutil>=2.8.2
 
-# JUPYTER & COLLAB COMPATIBILITY (Resolving Conflicts)
-# Note: Google Colab 1.0.0 has a hard requirement for ipykernel~=4.10 or ~=6.17.
-# In a local environment, use the versions below.
-ipykernel>=6.29.0         # Modern stable for local use
-notebook>=7.0.0
-jupyter-client>=8.0.0
-
-# DEVELOPMENT AND QUALITY
+# =========================
+# DEV & QUALITY (OPTIONAL ON COLAB)
+# =========================
 black>=23.12.0
 isort>=5.13.0
 pylint>=3.0.0

@@ -212,8 +212,12 @@ class SSLTrainer:
             # Get current LR
             current_lr = self.optimizer.param_groups[0]['lr']
             
-            # Logging
-            logger.info(f"Epoch {epoch + 1}/{num_epochs}:")
+            # Calculate progress
+            progress_pct = ((epoch + 1) / num_epochs) * 100
+            
+            # Logging with progress
+            logger.info(f"\n{'='*60}")
+            logger.info(f"Epoch {epoch + 1}/{num_epochs} [{progress_pct:.1f}%]")
             logger.info(f"  Train Loss: {train_metrics['loss']:.4f}")
             logger.info(f"  Val Loss:   {val_metrics['loss']:.4f}")
             logger.info(f"  LR:         {current_lr:.2e}")
@@ -235,7 +239,7 @@ class SSLTrainer:
                 logger.info(f"  ✓ Best model updated (loss: {self.best_val_loss:.4f})")
             else:
                 patience_counter += 1
-                logger.info(f"  Patience: {patience_counter}/{early_stopping_patience}")
+                logger.info(f"  Patience: {patience_counter}/10")
                 
                 # Early stopping
                 if patience_counter >= early_stopping_patience:
