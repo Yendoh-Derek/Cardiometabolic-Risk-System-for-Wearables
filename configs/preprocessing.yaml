@@ -1,0 +1,25 @@
+# Signal processing configuration
+
+signal:
+  target_fs: 125  # Target sampling rate (Hz)
+  
+filtering:
+  type: "chebyshev2"
+  order: 4
+  lowcut: 0.5   # Hz
+  highcut: 8.0  # Hz
+  rs: 40        # Stopband attenuation (dB)
+
+denoising:
+  method: "wavelet"
+  wavelet: "db4"
+  level: 5
+  threshold_method: "soft"
+
+segmentation:
+  window_sec: 600      # 10 minutes
+  overlap_sec: 0       # No overlap
+  
+quality:
+  min_sqi: 0.5         # Minimum SQI threshold
+  min_snr_db: 10       # Minimum SNR

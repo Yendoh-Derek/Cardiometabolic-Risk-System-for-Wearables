@@ -1,0 +1,80 @@
+# Data files (large datasets)
+data/raw/**/*.csv
+data/raw/**/*.parquet
+data/raw/**/*.npy
+data/raw/**/*.pkl
+data/raw/**/*.pickle
+data/processed/**/*.npy
+data/processed/**/*.parquet
+data/processed/**/*.pkl
+data/processed/**/*.pickle
+data/cache/**/*.json
+data/metadata/**/*.csv
+data/features/**/*.csv
+
+# Signal batches
+data/processed/signal_batches/
+
+# Model artifacts
+artifacts/models/**/*
+artifacts/preprocessing/**/*
+artifacts/evaluation/**/*
+artifacts/explainability/**/*
+artifacts/features/**/*
+
+# MLflow tracking
+logs/mlruns/
+mlruns/
+.mlflow/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Jupyter
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.env
+.env.local
+
+# OS
+Thumbs.db
+desktop.ini
+
+# Experiments and temporary files
+*.tmp
+*.log
+.cache/

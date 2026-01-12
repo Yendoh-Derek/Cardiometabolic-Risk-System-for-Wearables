@@ -1,0 +1,16 @@
+# Data paths and parameters
+
+mimic:
+  database: "mimic3wdb-matched"
+  version: "1.0"
+  
+paths:
+  raw: "data/raw"
+  processed: "data/processed"
+  metadata: "data/metadata"
+  cache: "data/cache"
+  
+filtering:
+  min_duration_min: 10
+  has_ppg: true
+  sampling_rate: 125
