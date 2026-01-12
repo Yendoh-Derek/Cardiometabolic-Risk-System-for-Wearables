@@ -10,6 +10,7 @@
 ## Deliverables
 
 ### 1. **validate_phase4.py** ✅ (~100 lines)
+
 Quick validation script that runs in <5 seconds (no data loading, no training):
 
 ```
@@ -24,6 +25,7 @@ Result: ALL CHECKS PASSED ✅
 ```
 
 **Usage**:
+
 ```bash
 python validate_phase4.py
 ```
@@ -31,9 +33,11 @@ python validate_phase4.py
 ---
 
 ### 2. **notebooks/05_ssl_pretraining_colab.ipynb** ✅ (~150 lines)
+
 Single-page Colab notebook for Phase 5 training:
 
 **Cells**:
+
 1. Mount Google Drive
 2. Clone repository
 3. Install dependencies
@@ -49,6 +53,7 @@ Single-page Colab notebook for Phase 5 training:
 ---
 
 ### 3. **colab_src/utils/colab_utils.py** ✅ (~140 lines)
+
 Optional helper module for Colab:
 
 ```python
@@ -65,6 +70,7 @@ All functionality already available through `SSLConfig.from_yaml()`, but these h
 ---
 
 ### 4. **requirements.txt** (Updated) ✅
+
 - Added `PyYAML>=6.0` (explicit config loading dependency)
 - All packages locked to specific versions
 - 93 total packages (PyTorch 2.1.0, scikit-learn, XGBoost, etc.)
@@ -74,6 +80,7 @@ All functionality already available through `SSLConfig.from_yaml()`, but these h
 ### 5. **README.md** (Completely Rewritten) ✅
 
 **Sections**:
+
 - Completion status (Phase 0-4 ✅, Phase 5-8 🚀 READY)
 - Quick start guide (local + Colab)
 - Project structure diagram
@@ -83,6 +90,7 @@ All functionality already available through `SSLConfig.from_yaml()`, but these h
 - Next steps (Phase 5-8 roadmap)
 
 **Key additions**:
+
 - Phase 5-8 roadmap table with gates and success criteria
 - Architecture equation for loss function
 - Colab notebook link
@@ -93,6 +101,7 @@ All functionality already available through `SSLConfig.from_yaml()`, but these h
 ### 6. **.gitignore** (Cleaned) ✅
 
 **Changes**:
+
 - Removed overly strict rules excluding documentation
 - Keep: `context/`, `PHASE_*.md`, `IMPLEMENTATION_INDEX.md`
 - Exclude: Only runtime data artifacts (`.npy`, `.parquet`, `.pkl`)
@@ -105,14 +114,14 @@ All functionality already available through `SSLConfig.from_yaml()`, but these h
 
 All 6 validation checks passed:
 
-| Check | Result | Details |
-|-------|--------|---------|
-| SSLConfig | ✅ | YAML loading works, auto-detects environment |
-| ResNetEncoder | ✅ | 2.8M params, initializes correctly |
-| ResNetDecoder | ✅ | 1.2M params, initializes correctly |
-| Forward Pass | ✅ | 75K→512→75K shape transformation correct |
-| Multi-Loss | ✅ | MSE, SSIM, FFT all compute without errors |
-| Augmentation | ✅ | Temporal shifts work, preserves signal shape |
+| Check         | Result | Details                                      |
+| ------------- | ------ | -------------------------------------------- |
+| SSLConfig     | ✅     | YAML loading works, auto-detects environment |
+| ResNetEncoder | ✅     | 2.8M params, initializes correctly           |
+| ResNetDecoder | ✅     | 1.2M params, initializes correctly           |
+| Forward Pass  | ✅     | 75K→512→75K shape transformation correct     |
+| Multi-Loss    | ✅     | MSE, SSIM, FFT all compute without errors    |
+| Augmentation  | ✅     | Temporal shifts work, preserves signal shape |
 
 ---
 
@@ -139,6 +148,7 @@ nothing to commit, working tree clean
 **File**: `notebooks/05_ssl_pretraining_colab.ipynb`
 
 **Structure**:
+
 ```
 ┌─────────────────────────────────┐
 │ 1. Mount Drive + Clone Repo     │ ~30 sec
@@ -156,6 +166,7 @@ nothing to commit, working tree clean
 ```
 
 **To Use**:
+
 1. Open: https://github.com/YOUR_ORG/cardiometabolic-risk-colab/blob/main/notebooks/05_ssl_pretraining_colab.ipynb
 2. Click "Open in Colab" button
 3. Run cells in order
@@ -182,6 +193,7 @@ nothing to commit, working tree clean
 **Gate**: Validation loss <0.01 AND SSIM >0.80
 
 **Steps**:
+
 1. Open Colab notebook
 2. Mount Drive, clone repo, install deps
 3. Run training for 50 epochs
@@ -223,14 +235,14 @@ nothing to commit, working tree clean
 
 ## Files Modified/Created
 
-| File | Type | Change | Lines |
-|------|------|--------|-------|
-| `validate_phase4.py` | Created | New validation script | ~100 |
-| `notebooks/05_ssl_pretraining_colab.ipynb` | Created | Colab notebook | ~150 |
-| `colab_src/utils/colab_utils.py` | Created | Colab helpers | ~140 |
-| `README.md` | Updated | Complete rewrite | ~350 |
-| `requirements.txt` | Updated | Added PyYAML | +1 line |
-| `.gitignore` | Updated | Cleaned rules | -5 lines |
+| File                                       | Type    | Change                | Lines    |
+| ------------------------------------------ | ------- | --------------------- | -------- |
+| `validate_phase4.py`                       | Created | New validation script | ~100     |
+| `notebooks/05_ssl_pretraining_colab.ipynb` | Created | Colab notebook        | ~150     |
+| `colab_src/utils/colab_utils.py`           | Created | Colab helpers         | ~140     |
+| `README.md`                                | Updated | Complete rewrite      | ~350     |
+| `requirements.txt`                         | Updated | Added PyYAML          | +1 line  |
+| `.gitignore`                               | Updated | Cleaned rules         | -5 lines |
 
 **Total changes**: ~150 lines of new code, ~350 lines of documentation
 

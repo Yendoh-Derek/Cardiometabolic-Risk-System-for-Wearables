@@ -13,6 +13,7 @@ import logging
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import numpy as np
 from pathlib import Path
 import sys
 
@@ -137,14 +138,16 @@ def main():
     
     # Learning rate scheduler (cosine annealing with warmup)
     num_epochs = config.training.num_epochs
+    # Use max(1, ...) to avoid invalid T_0 for short runs (e.g., testing with 1 epoch)
     scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(
         optimizer,
-        T_0=num_epochs // 2,
+        T_0=max(1, num_epochs // 2),
         T_mult=1,
         eta_min=config.training.learning_rate * 0.01,
     )
     
     # Create augmentation
+    np.random.seed(config.seed)
     augmentation = PPGAugmentation(
         temporal_shift_range=config.augmentation.temporal_shift_range,
         amplitude_scale_range=config.augmentation.amplitude_scale_range,
@@ -153,7 +156,6 @@ def main():
         noise_prob=config.augmentation.noise_prob,
         noise_snr_ratio=config.augmentation.noise_snr_ratio,
         sample_rate=config.data.sample_rate,
-        seed=config.seed,
     )
     
     # Create dataloaders

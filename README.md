@@ -22,12 +22,12 @@
 
 ### Phase 5-8 Roadmap
 
-| Phase | Goal | Duration | Gate |
-|-------|------|----------|------|
-| **5** | Full 50-epoch training on Colab T4 | 8–12h | Val loss <0.01, SSIM >0.80 |
-| **6** | Linear probe evaluation | 1–2h | AUROC >0.65 on ≥1 cardiometabolic condition |
-| **7** | Extract embeddings + crafted features | 30min | 551-dim feature matrix ready |
-| **8** | XGBoost downstream models | 2–3h | AUROC ≥0.70 on ≥2 conditions |
+| Phase | Goal                                  | Duration | Gate                                        |
+| ----- | ------------------------------------- | -------- | ------------------------------------------- |
+| **5** | Full 50-epoch training on Colab T4    | 8–12h    | Val loss <0.01, SSIM >0.80                  |
+| **6** | Linear probe evaluation               | 1–2h     | AUROC >0.65 on ≥1 cardiometabolic condition |
+| **7** | Extract embeddings + crafted features | 30min    | 551-dim feature matrix ready                |
+| **8** | XGBoost downstream models             | 2–3h     | AUROC ≥0.70 on ≥2 conditions                |
 
 ---
 
@@ -168,14 +168,17 @@ $$L_{total} = 0.50 \cdot L_{MSE} + 0.30 \cdot L_{SSIM} + 0.20 \cdot L_{FFT}$$
 ## Next Steps
 
 1. **Phase 5**: Run full training in Colab
+
    - Expected: 8–12 hours on T4
    - Output: `best_encoder.pt` checkpoint
 
 2. **Phase 6**: Linear probe evaluation
+
    - Quick validation of learned representations
    - Gate: AUROC >0.65
 
 3. **Phase 7**: Embeddings + features
+
    - Extract 512-dim latent vectors for all 4,417 samples
    - Combine with 39 hand-crafted features
 
