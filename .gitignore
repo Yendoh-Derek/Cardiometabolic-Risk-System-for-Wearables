@@ -12,6 +12,10 @@ data/cache/**/*.json
 data/metadata/**/*.csv
 data/features/**/*.csv
 
+# Note: context/, PHASE_*.md, IMPLEMENTATION_INDEX.md are KEPT
+# These are valuable documentation and should be in the repo
+
+
 # Signal batches
 data/processed/signal_batches/
 
