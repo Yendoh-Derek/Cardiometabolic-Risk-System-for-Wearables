@@ -85,11 +85,12 @@ class SSIMLoss(nn.Module):
 
 
 class FFTLoss(nn.Module):
-    """Frequency domain loss using real FFT."""
+    """Frequency domain loss using real FFT with configurable padding."""
     
-    def __init__(self, norm: str = 'ortho'):
+    def __init__(self, norm: str = 'ortho', fft_pad_size: int = 2048):
         super().__init__()
         self.norm = norm
+        self.fft_pad_size = fft_pad_size  # Phase 5A: padding for efficiency (2048 vs 131072)
     
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """
@@ -108,9 +109,9 @@ class FFTLoss(nn.Module):
         if target.dim() == 3:
             target = target.squeeze(1)
         
-        # Compute FFT (real FFT for real-valued signals)
-        pred_fft = torch.fft.rfft(pred, norm=self.norm)
-        target_fft = torch.fft.rfft(target, norm=self.norm)
+        # Compute FFT with padding (Phase 5A: 2048 instead of 131072)
+        pred_fft = torch.fft.rfft(pred, n=self.fft_pad_size, norm=self.norm)
+        target_fft = torch.fft.rfft(target, n=self.fft_pad_size, norm=self.norm)
         
         # Magnitude and phase
         pred_mag = torch.abs(pred_fft)
@@ -145,6 +146,7 @@ class SSLLoss(nn.Module):
         fft_weight: float = 0.20,
         ssim_window_size: int = 11,
         fft_norm: str = 'ortho',
+        fft_pad_size: int = 2048,  # Phase 5A: critical fix (was 131072, now 2048)
     ):
         super().__init__()
         
@@ -160,7 +162,7 @@ class SSLLoss(nn.Module):
         # Initialize individual losses
         self.mse_loss = nn.MSELoss()
         self.ssim_loss = SSIMLoss(window_size=ssim_window_size)
-        self.fft_loss = FFTLoss(norm=fft_norm)
+        self.fft_loss = FFTLoss(norm=fft_norm, fft_pad_size=fft_pad_size)  # Phase 5A: pass fft_pad_size
     
     def forward(
         self, 

@@ -8,14 +8,14 @@
 
 ## 🔄 CRITICAL PIVOT: Window Size & Architecture Changes
 
-| Parameter | Old (Phase 4) | New (Phase 5+) | Rationale |
-|-----------|---------------|----------------|-----------|
-| **Window size** | 75,000 samples (10 min) | 1,250 samples (10 sec) | Preserve micro-morphology, reduce over-compression |
-| **Encoder blocks** | 4 | 3 | Prevent excessive downsampling of 1,250-sample input |
-| **Training samples** | 4,133 signals | 617,000 overlapping windows | 60× data expansion via stride-500 sliding window |
-| **Batch size** | 8 | **128** | ✅ Critical fix: GPU utilization, better BatchNorm |
-| **FFT padding** | 2^17 (131,072) | **2^11 (2,048)** | ✅ Critical fix: 67× faster, eliminate 99% zero-padding waste |
-| **Data split** | Window-level | **Subject-level (caseid)** | ✅ Critical fix: Prevent data leakage in Phase 8 |
+| Parameter            | Old (Phase 4)           | New (Phase 5+)              | Rationale                                                     |
+| -------------------- | ----------------------- | --------------------------- | ------------------------------------------------------------- |
+| **Window size**      | 75,000 samples (10 min) | 1,250 samples (10 sec)      | Preserve micro-morphology, reduce over-compression            |
+| **Encoder blocks**   | 4                       | 3                           | Prevent excessive downsampling of 1,250-sample input          |
+| **Training samples** | 4,133 signals           | 617,000 overlapping windows | 60× data expansion via stride-500 sliding window              |
+| **Batch size**       | 8                       | **128**                     | ✅ Critical fix: GPU utilization, better BatchNorm            |
+| **FFT padding**      | 2^17 (131,072)          | **2^11 (2,048)**            | ✅ Critical fix: 67× faster, eliminate 99% zero-padding waste |
+| **Data split**       | Window-level            | **Subject-level (caseid)**  | ✅ Critical fix: Prevent data leakage in Phase 8              |
 
 ---
 
@@ -163,6 +163,7 @@ cardiometabolic-risk-colab/
 │ ├── 03_feature_engineering.ipynb
 │ ├── 04_clinical_data_integration.ipynb
 │ ├── 05_ssl_data_preparation.ipynb
+││    05_ssl_pretraining_colab.ipynb
 │ ├── 06_model_training.ipynb
 │ ├── 07_model_evaluation.ipynb
 │ └── 08_interpretability.ipynb
@@ -206,11 +207,13 @@ cardiometabolic-risk-colab/
 ## Module Descriptions by Phase
 
 ### **Phase 0: Data Preparation** (Complete)
+
 - **mimic_ingestion.py**: Download 4,417 PPG signals from MIMIC-III
 - **signal_preprocessing.py**: Filter + denoise → 4,417 clean signals
 - **dataset_assembly.py**: Create parquet metadata index
 
 ### **Phase 5A: Architecture Refactoring** (4-5 hours local)
+
 - **encoder.py**: Refactor to 3 blocks, accept [B,1,1250] input
 - **decoder.py**: Refactor to mirror architecture, output [B,1,1250]
 - **augmentation.py**: Rescale temporal_shift_pct for small windows
@@ -219,20 +222,24 @@ cardiometabolic-risk-colab/
 - **configs/ssl_pretraining.yaml**: Update batch_size, fft_pad_size, warmup, patience
 
 ### **Phase 5B: Full Pretraining** (12-18 hours Colab T4)
+
 - **trainer.py**: Execute 50 epochs on 617k samples
 - **losses.py**: Hybrid loss with optimized FFT padding
 - **checkpoint_manager.py**: Save/resume on timeout
 
 ### **Phase 6: Validation** (1 hour Colab)
+
 - **reconstruction_metrics.py**: SSIM, MSE, correlation
 - **embedding_analysis.py**: Variance checks, PCA visualization
 
 ### **Phase 7: Feature Extraction** (30 min Colab)
+
 - **dataloader.py**: Batch load embeddings
 - **feature_combiner.py**: Combine SSL + classical features
 - **ssl_features_final.parquet**: [4,417 × 515] final matrix
 
 ### **Phase 8: Transfer Learning** (2 hours Colab)
+
 - **vitaldb_transfer.py**: ✅ **Critical fix #3**: Split by caseid, not windows
 - **transfer_learning_eval.py**: Compute AUROC per condition
 - **report_generator.py**: Markdown report with interpretation
@@ -242,16 +249,19 @@ cardiometabolic-risk-colab/
 ## Critical Fixes Applied (January 14, 2026)
 
 ### ✅ Fix #1: Data Leakage Prevention
+
 **File**: `vitaldb_transfer.py` (Phase 8)  
 **Change**: Split by subject (caseid) before assigning windows to train/test  
 **Impact**: Honest cross-subject evaluation, no artificial AUROC inflation
 
 ### ✅ Fix #2: FFT Padding Efficiency
+
 **File**: `configs/ssl_pretraining.yaml`  
 **Change**: `fft_pad_size: 2048` (was 131,072)  
 **Impact**: 67× faster loss computation, eliminate 99% zero-padding waste
 
 ### ✅ Fix #3: Batch Size Optimization
+
 **File**: `configs/ssl_pretraining.yaml`  
 **Change**: `batch_size: 128`, `accumulation_steps: 1` (were 8, 4)  
 **Impact**: 10× faster epoch (1.5 min vs 16 min on T4)
@@ -260,16 +270,16 @@ cardiometabolic-risk-colab/
 
 ## Key Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| **PyTorch** | 2.1+ | Deep learning framework |
-| **NumPy** | 1.24+ | Numerical computing |
-| **Pandas** | 2.0+ | Data manipulation |
-| **SciPy** | 1.10+ | Signal processing (Chebyshev-II filter) |
-| **scikit-learn** | 1.3+ | Logistic regression, train_test_split |
-| **PyWavelets** | 1.4+ | Wavelet denoising (db4) |
-| **NeuroKit2** | 0.2.7+ | HRV feature extraction |
-| **Matplotlib** | 3.7+ | Visualization |
+| Package          | Version | Purpose                                 |
+| ---------------- | ------- | --------------------------------------- |
+| **PyTorch**      | 2.1+    | Deep learning framework                 |
+| **NumPy**        | 1.24+   | Numerical computing                     |
+| **Pandas**       | 2.0+    | Data manipulation                       |
+| **SciPy**        | 1.10+   | Signal processing (Chebyshev-II filter) |
+| **scikit-learn** | 1.3+    | Logistic regression, train_test_split   |
+| **PyWavelets**   | 1.4+    | Wavelet denoising (db4)                 |
+| **NeuroKit2**    | 0.2.7+  | HRV feature extraction                  |
+| **Matplotlib**   | 3.7+    | Visualization                           |
 
 ---
 

@@ -2,7 +2,11 @@
 ResNet decoder architecture for self-supervised learning.
 
 1D Transposed Convolutional ResNet, mirrors encoder.
-Input: (batch, latent_dim) -> Output: (batch, 1, 75000)
+Phase 5A (Updated): Input: (batch, latent_dim) -> Output: (batch, 1, 1250)
+Previously: Output was (batch, 1, 75000)
+
+Architecture: 3 transposed blocks (mirrors 3-block encoder).
+Spatial progression: [B,512] -> [B,256,78] -> [B,128,156] -> [B,64,312] -> [B,32,625] -> [B,1,1250]
 """
 
 import torch
@@ -134,16 +138,19 @@ class ResNetDecoder(nn.Module):
             x: Latent embedding (batch, latent_dim)
         
         Returns:
-            Reconstructed signal (batch, 1, 75000)
+            Reconstructed signal (batch, 1, 1250)
         """
         # MLP projection from latent to spatial
         x = self.mlp(x)  # (batch, final_channels)
         
         # Reshape to add spatial dimension for upsampling
-        # Need spatial dimension S such that S * 2^(num_blocks) * 2 = 75000
+        # Phase 5A: Target output is 1250 samples (was 75000)
+        # Need spatial dimension S such that S * 2^num_blocks * 2 = target_length
+        # For num_blocks=3: S * 8 * 2 = S * 16 = 1250 => S = 78 (with rounding)
         # For num_blocks=4: S * 16 * 2 = S * 32 = 75000 => S = 2344
-        initial_spatial_size = 75000 // (2 ** (self.num_blocks + 1))
-        if 75000 % (2 ** (self.num_blocks + 1)) != 0:
+        target_length = 1250  # Phase 5A: 1250 samples (10 sec @ 125 Hz)
+        initial_spatial_size = target_length // (2 ** (self.num_blocks + 1))
+        if target_length % (2 ** (self.num_blocks + 1)) != 0:
             initial_spatial_size += 1
         
         x = x.unsqueeze(-1)  # (batch, final_channels, 1)
@@ -156,13 +163,13 @@ class ResNetDecoder(nn.Module):
             x = block(x)
         
         # Final conv output
-        x = self.conv_out(x)  # (batch, 1, ~75000)
+        x = self.conv_out(x)  # (batch, 1, ~1250)
         
-        # Ensure correct output length (should be 75000)
+        # Ensure correct output length (should be 1250)
         # Clip or pad to desired length
-        if x.size(-1) > 75000:
-            x = x[..., :75000]
-        elif x.size(-1) < 75000:
-            x = F.pad(x, (0, 75000 - x.size(-1)))
+        if x.size(-1) > target_length:
+            x = x[..., :target_length]
+        elif x.size(-1) < target_length:
+            x = F.pad(x, (0, target_length - x.size(-1)))
         
         return x

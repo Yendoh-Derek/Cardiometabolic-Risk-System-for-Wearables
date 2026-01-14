@@ -2,7 +2,11 @@
 ResNet encoder architecture for self-supervised learning.
 
 1D Convolutional ResNet with stride-2 blocks (no max pooling).
-Input: (batch, 1, 75000) -> Output: (batch, latent_dim)
+Phase 5A (Updated): Input: (batch, 1, 1250) -> Output: (batch, latent_dim)
+Previously: Input was (batch, 1, 75000)
+
+Architecture: 3-block encoder (not 4) to prevent over-compression of 1,250-sample windows.
+Spatial progression: [B,1,1250] -> [B,64,625] -> [B,128,312] -> [B,256,156] -> AvgPool -> [B,512]
 """
 
 import torch
@@ -119,15 +123,16 @@ class ResNetEncoder(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool1d(1)
         
         # MLP head to latent space with bottleneck projection
-        # latent_dim -> bottleneck_dim -> latent_dim
+        # Takes final_channels (256 for 3 blocks, 512 for 4 blocks) -> bottleneck -> latent_dim
+        # Note: final_channels computed from num_blocks (256 for 3-block, 512 for 4-block)
         self.mlp = nn.Sequential(
-            nn.Linear(self.final_channels, latent_dim),
-            nn.BatchNorm1d(latent_dim),
-            nn.ReLU(inplace=True),
-            nn.Linear(latent_dim, bottleneck_dim),
+            nn.Linear(self.final_channels, bottleneck_dim),
             nn.BatchNorm1d(bottleneck_dim),
             nn.ReLU(inplace=True),
             nn.Linear(bottleneck_dim, latent_dim),
+            nn.BatchNorm1d(latent_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(latent_dim, latent_dim),
         )
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:

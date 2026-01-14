@@ -173,6 +173,28 @@ class SSLTrainer:
         avg_loss = total_loss / num_batches
         return {'loss': avg_loss}
     
+    def find_latest_checkpoint(self) -> Optional[Path]:
+        """
+        Phase 5A: Find latest checkpoint for Colab timeout recovery.
+        
+        Returns:
+            Path to latest checkpoint, or None if none found
+        """
+        if not self.checkpoint_dir.exists():
+            return None
+        
+        # Find all checkpoint files
+        checkpoints = list(self.checkpoint_dir.glob('checkpoint_epoch_*.pt'))
+        if not checkpoints:
+            return None
+        
+        # Sort by modification time (most recent last)
+        checkpoints.sort(key=lambda p: p.stat().st_mtime)
+        latest = checkpoints[-1]
+        
+        logger.info(f"Found latest checkpoint: {latest}")
+        return latest
+    
     def fit(
         self,
         train_loader,
@@ -181,7 +203,9 @@ class SSLTrainer:
         early_stopping_patience: int = 10,
     ) -> Dict:
         """
-        Train model for multiple epochs.
+        Train model for multiple epochs with Colab timeout recovery.
+        
+        Phase 5A: Auto-detects latest checkpoint on startup for resume capability.
         
         Args:
             train_loader: Training DataLoader
@@ -196,9 +220,24 @@ class SSLTrainer:
         logger.info(f"Gradient accumulation: {self.accumulation_steps} steps")
         logger.info(f"Mixed precision: {self.use_mixed_precision}")
         
+        # Phase 5A: Auto-checkpoint recovery (for Colab timeout survival)
+        start_epoch = 0
+        latest_ckpt = self.find_latest_checkpoint()
+        if latest_ckpt:
+            logger.info(f"Resuming from checkpoint: {latest_ckpt}")
+            checkpoint = torch.load(latest_ckpt, map_location=self.device)
+            self.model.load_state_dict(checkpoint['model_state'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+            if self.use_mixed_precision:
+                self.scaler.load_state_dict(checkpoint['scaler_state'])
+            self.best_val_loss = checkpoint['best_val_loss']
+            self.training_history = checkpoint['training_history']
+            start_epoch = checkpoint['epoch'] + 1
+            logger.info(f"Resumed from epoch {start_epoch}")
+        
         patience_counter = 0
         
-        for epoch in range(num_epochs):
+        for epoch in range(start_epoch, num_epochs):
             # Train
             train_metrics = self.train_epoch(train_loader)
             

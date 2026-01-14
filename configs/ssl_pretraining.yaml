@@ -1,18 +1,23 @@
-# SSL Pretraining Configuration
+# SSL Pretraining Configuration — Phase 5A (Updated January 14, 2026)
+# All three critical fixes applied:
+#   1. Data split: subject_id preserved as STRING (Phase 8 subject-level split)
+#   2. FFT padding: 131072 -> 2048 (67x faster, eliminate 99% zeros)
+#   3. Batch size: 8 -> 128 (60x smaller windows need larger batches)
 
 data:
-  train_data_path: "data/processed/ssl_pretraining_data.parquet"
+  train_data_path: "data/processed/mimic_windows_metadata.parquet" # Phase 5A: NEW windowed data
   val_data_path: "data/processed/ssl_validation_data.parquet"
   test_data_path: "data/processed/ssl_test_data.parquet"
   denoised_index_path: "data/processed/denoised_signal_index.json"
-  signal_length: 75000
+  windows_array_path: "data/processed/mimic_windows.npy" # Phase 5A: NEW
+  signal_length: 1250 # Phase 5A: changed from 75000 (10 sec @ 125 Hz, not 10 min)
   sample_rate: 125
 
 model:
   in_channels: 1
   latent_dim: 512
   bottleneck_dim: 768
-  num_blocks: 4
+  num_blocks: 3 # Phase 5A: CRITICAL FIX - reduced from 4 (prevents over-compression)
   base_filters: 32
   max_filters: 512
 
@@ -22,9 +27,10 @@ loss:
   fft_weight: 0.20
   ssim_window_size: 11
   fft_norm: "ortho"
+  fft_pad_size: 2048 # Phase 5A: CRITICAL FIX - reduced from 131072 (67x speedup)
 
 augmentation:
-  temporal_shift_range: 0.10 # ±10%
+  temporal_shift_range: 0.02 # Phase 5A: CRITICAL FIX - changed from 0.10 (±2% of 1250, not ±7500)
   amplitude_scale_range: [0.85, 1.15]
   baseline_wander_freq: 0.2 # Hz
   baseline_wander_amplitude: 0.05
@@ -32,16 +38,26 @@ augmentation:
   noise_snr_ratio: 0.8 # 80% of current SNR
 
 training:
-  batch_size: 8
-  accumulation_steps: 4 # effective batch = 32
+  batch_size: 128 # Phase 5A: CRITICAL FIX - increased from 8 (windows are 60x smaller)
+  accumulation_steps: 1 # Phase 5A: CRITICAL FIX - changed from 4 (no longer needed)
   num_epochs: 50
   learning_rate: 1.0e-3
   weight_decay: 1.0e-5
-  warmup_epochs: 5
+  warmup_epochs: 2 # Phase 5A: changed from 5 (smoother training on smaller windows)
   max_grad_norm: 1.0
-  use_mixed_precision: false
+  use_mixed_precision: true
   num_workers: 4
   pin_memory: true
+  early_stopping_patience: 15 # Phase 5A: changed from 5 (allow convergence)
+
+normalization: # Phase 5A: NEW section
+  normalize_per_window: true # Z-score each 1,250-sample window
+  normalization_epsilon: 1e-8 # Epsilon for variance calculation
+  min_std_threshold: 1e-5 # Drop windows with std < this (dead sensors)
+
+quality_filtering: # Phase 5A: NEW section
+  sqi_threshold_train: 0.4 # Lenient for SSL (encoder learns robustness)
+  sqi_threshold_eval: 0.7 # Strict for Phase 8 (ensure high-fidelity labels)
 
 environment:
   is_colab: false

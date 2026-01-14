@@ -5,7 +5,8 @@
 **All local validation complete. Self-supervised learning pipeline refactored for overlapping 10-second windows. Three critical flaws identified and fixed. Comprehensive implementation plan for Phases 5-8 complete. Ready for Phase 5A refactoring (January 15, 2026).**
 
 **Key Pivot**: 75,000-sample (10-min) signals → 617,000 overlapping 1,250-sample (10-sec) windows with 3-block encoder architecture.
-**Critical Fixes Applied**: 
+**Critical Fixes Applied**:
+
 1. ✅ Data leakage prevention (subject-level splitting in Phase 8)
 2. ✅ FFT padding efficiency (2^17 → 2^11, 67× speedup)
 3. ✅ Batch size optimization (8 → 128, 10× faster epochs)
@@ -56,7 +57,7 @@
 - **All flaws fixed** and documented in master plan
 - **Architecture refactored**: 4 blocks → 3 blocks for 1,250-sample input
 - **Data strategy**: 4,417 signals → 617,000 overlapping windows (stride=500)
-- **Documentation updated**: 
+- **Documentation updated**:
   - `docs/IMPLEMENTATION_PLAN_PHASES_0-8.md` (master plan with fixes)
   - `docs/FINAL_CRITICAL_FIXES_SUMMARY.md` (detailed fix documentation)
   - `docs/codebase.md` (updated for SSL pivot)
@@ -136,21 +137,24 @@ Epoch 1 Results:
 
 ---
 
-## Critical Flaws Identified & Fixed (January 14, 2026)
+## Critical Flaws Identified & Fixed (January 14, 2026) These are only fixed in plan and not in codebase yet
 
 ### ✅ Fix #1: Data Leakage Prevention (Phase 8)
+
 **Problem**: Window-level train/test split allowed same subject in both sets → inflated AUROC
 **Solution**: Split by subject ID (caseid) first, then assign windows
 **Impact**: Honest cross-subject evaluation, no artificial generalization claims
 **Location**: `colab_src/models/ssl/vitaldb_transfer.py` (Phase 8)
 
 ### ✅ Fix #2: FFT Padding Efficiency (Phase 5)
+
 **Problem**: Padding 1,250-sample signals to 2^17 (131,072) → 99% zeros, massive waste
 **Solution**: Reduce FFT pad size to 2^11 (2,048) — sufficient for 1,250 samples
 **Impact**: 67× faster loss computation (480ms → 7ms per batch)
 **Location**: `configs/ssl_pretraining.yaml` + `colab_src/models/ssl/losses.py`
 
 ### ✅ Fix #3: Batch Size Optimization (Phase 5)
+
 **Problem**: Batch size 8 from old 75k-sample plan inadequate for 60× smaller windows
 **Solution**: Increase to 128, remove gradient accumulation (now unnecessary)
 **Impact**: 10× faster epochs (16 min → 1.5 min on T4 GPU)
@@ -161,7 +165,9 @@ Epoch 1 Results:
 ## Architecture Pivot: Overlapping Windows
 
 ### Why Windows?
+
 - **Old approach**: Full 75,000-sample signals (10 min @ 125 Hz)
+
   - Problem: Over-compresses rich 10-second PPG patterns
   - Encoder blocks (4×) reduce 75k → very compressed bottleneck
   - Loses beat-level morphology details
@@ -173,6 +179,7 @@ Epoch 1 Results:
   - Better for clinical feature learning
 
 ### Data Strategy
+
 ```
 4,417 MIMIC PPG signals (75,000 samples each)
     ↓ [Sliding window: stride=500, length=1,250]
@@ -203,6 +210,7 @@ Best encoder: 512-dimensional learned representations
 ## Next: Phases 5-8 Execution Timeline
 
 ### Phase 5A: Architecture Refactoring (4-5 hours, local)
+
 - Refactor encoder to accept [B, 1, 1,250] input (not 75,000)
 - Generate 617k overlapping windows from MIMIC signals
 - Update augmentation for small windows
@@ -210,6 +218,7 @@ Best encoder: 512-dimensional learned representations
 - Validate shapes and forward passes
 
 ### Phase 5B: Full Pretraining (12-18 hours, Colab T4)
+
 - Load 617k windowed samples
 - Train encoder/decoder 50 epochs with hybrid loss
 - Checkpoint on validation loss improvement
@@ -217,12 +226,14 @@ Best encoder: 512-dimensional learned representations
 - Save best_encoder.pt
 
 ### Phase 6-7: Validation & Features (1.5 hours, Colab)
+
 - Validate reconstruction quality (SSIM >0.85, MSE <0.005)
 - Extract classical HRV features (28) + morphology (6) + context (3)
 - Combine SSL embeddings (512) with classical features
 - Output: 4,417 × 515 final feature matrix
 
 ### Phase 8: Transfer Learning Validation (2 hours, Colab)
+
 - Load VitalDB dataset (6,388 labeled surgical cases)
 - Frozen MIMIC encoder + linear probes for 3 conditions
 - 5-fold cross-subject validation (✅ FIX #1: split by caseid)
@@ -245,22 +256,27 @@ Best encoder: 512-dimensional learned representations
 ## Documentation Status
 
 ### Master Documents (Phase 4 - January 14, 2026)
+
 - ✅ **docs/IMPLEMENTATION_PLAN_PHASES_0-8.md** (1,100 lines)
+
   - Complete Phase 5-8 execution plan
   - All three critical fixes embedded
   - 68 detailed sections with success criteria
 
 - ✅ **docs/FINAL_CRITICAL_FIXES_SUMMARY.md** (200+ lines)
+
   - Root cause analysis for each flaw
   - Impact quantification (67×, 10×, honest AUROC)
   - Configuration changes specified
 
 - ✅ **docs/codebase.md** (309 lines, updated Jan 14)
+
   - SSL-focused module structure
   - Critical pivot table
   - Phase mapping for all 9 modules
 
 - ✅ **docs/architecture.md** (424 lines, updated Jan 14)
+
   - Complete system design
   - 3-block encoder/decoder rationale
   - Transfer learning strategy with Fix #1
@@ -270,6 +286,7 @@ Best encoder: 512-dimensional learned representations
   - Consistency checks across files
 
 ### Supporting Documents
+
 - ✅ `context/IMPLEMENTATION_PLAN_PHASES_0-8.md` (master copy)
 - ✅ `context/CRITICAL_FIXES_APPLIED.md` (GitHub push record)
 - ✅ `context/PHASE_3_COMPLETE.md` (previous milestone)

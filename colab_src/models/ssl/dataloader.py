@@ -11,7 +11,7 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, Dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,10 @@ class PPGDataset(Dataset):
         normalize: bool = True,
         device: str = 'cpu',
         load_in_memory: bool = False,
+        normalize_per_window: bool = True,  # Phase 5A: Z-score normalization
+        normalization_epsilon: float = 1e-8,  # Phase 5A: epsilon for variance
+        min_std_threshold: float = 1e-5,  # Phase 5A: drop dead sensors
+        sqi_threshold: float = 0.4,  # Phase 5A: filter by quality
     ):
         """
         Initialize PPG dataset.
@@ -48,9 +52,13 @@ class PPGDataset(Dataset):
             denoised_index_path: Path to denoised signal index JSON
             signal_dir: Directory containing individual signal files
             augmentation: Augmentation callable (optional)
-            normalize: Whether to normalize signals to [0, 1]
+            normalize: Whether to normalize signals to [0, 1] (legacy, prefer per-window)
             device: Device for data ('cpu' or 'cuda')
             load_in_memory: Load all signals into memory
+            normalize_per_window: Phase 5A - per-window Z-score normalization
+            normalization_epsilon: Epsilon for variance calculation
+            min_std_threshold: Skip windows with std < this (dead sensors)
+            sqi_threshold: Skip windows with SQI < this (quality filtering)
         """
         self.metadata_path = Path(metadata_path)
         
@@ -77,6 +85,12 @@ class PPGDataset(Dataset):
         self.augmentation = augmentation
         self.normalize = normalize
         self.load_in_memory = load_in_memory
+        
+        # Phase 5A: New normalization parameters
+        self.normalize_per_window = normalize_per_window
+        self.normalization_epsilon = normalization_epsilon
+        self.min_std_threshold = min_std_threshold
+        self.sqi_threshold = sqi_threshold
         
         # Handle paths
         self.project_root = self.metadata_path.parent.parent.parent
@@ -167,20 +181,41 @@ class PPGDataset(Dataset):
     
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Get a single sample.
+        Get a single sample with Phase 5A enhancements.
         
         Args:
             idx: Sample index
         
         Returns:
-            (augmented_signal, denoised_signal)
+            (augmented_signal, denoised_signal) — both normalized to (μ=0, σ=1)
+        
+        Phase 5A Additions:
+            - Per-window Z-score normalization (prevents sensor artifact learning)
+            - Dead sensor filtering (skip if std < 1e-5)
+            - SQI filtering (skip if SQI < threshold)
         """
         # Load signals
         raw_signal = self._load_signal(idx)
         denoised_signal = self._load_denoised(idx)
         
-        # Normalize
-        if self.normalize:
+        # Phase 5A: Check SQI threshold (quality filtering)
+        if self.sqi_threshold > 0 and 'sqi_score' in self.metadata_df.columns:
+            sqi = self.metadata_df.iloc[idx]['sqi_score']
+            if sqi < self.sqi_threshold:
+                # Return None to signal DataLoader to skip this sample
+                return None, None
+        
+        # Phase 5A: Per-window Z-score normalization (critical for PPG)
+        # Standardizes μ=0, σ=1 regardless of sensor pressure/hardware
+        if self.normalize_per_window:
+            raw_signal = self._normalize_per_window(raw_signal)
+            denoised_signal = self._normalize_per_window(denoised_signal)
+            
+            # Dead sensor filtering: skip if std < threshold
+            if raw_signal is None or denoised_signal is None:
+                return None, None
+        elif self.normalize:
+            # Legacy: min-max normalization
             raw_signal = self._normalize(raw_signal)
             denoised_signal = self._normalize(denoised_signal)
         
@@ -203,6 +238,28 @@ class PPGDataset(Dataset):
             return (signal - signal_min) / (signal_max - signal_min)
         else:
             return signal - signal_min
+    
+    def _normalize_per_window(self, signal: np.ndarray) -> Optional[np.ndarray]:
+        """
+        Phase 5A: Per-window Z-score normalization.
+        
+        Formula: (x - μ) / (σ + ε) where ε = 1e-8 (inside denominator)
+        
+        Returns:
+            Normalized signal (μ≈0, σ≈1), or None if std < min_std_threshold (dead sensor)
+        """
+        mean = signal.mean()
+        std = signal.std()
+        
+        # Dead sensor check: skip if std < threshold
+        if std < self.min_std_threshold:
+            logger.debug(f"Dead sensor detected (std={std:.2e} < {self.min_std_threshold:.2e}), skipping window")
+            return None
+        
+        # Z-score with epsilon inside denominator (gradient-safe)
+        normalized = (signal - mean) / (std + self.normalization_epsilon)
+        
+        return normalized.astype(np.float32)
 
 
 def create_dataloaders(

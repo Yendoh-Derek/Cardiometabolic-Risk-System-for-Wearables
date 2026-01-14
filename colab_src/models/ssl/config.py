@@ -16,11 +16,12 @@ import yaml
 @dataclass
 class DataConfig:
     """Data configuration."""
-    train_data_path: str = "data/processed/ssl_pretraining_data.parquet"
+    train_data_path: str = "data/processed/mimic_windows_metadata.parquet"  # Phase 5A: changed to windowed data
     val_data_path: str = "data/processed/ssl_validation_data.parquet"
     test_data_path: str = "data/processed/ssl_test_data.parquet"
     denoised_index_path: str = "data/processed/denoised_signal_index.json"
-    signal_length: int = 75000  # 10 min @ 125 Hz
+    windows_array_path: str = "data/processed/mimic_windows.npy"  # Phase 5A: NEW
+    signal_length: int = 1250  # Phase 5A: changed from 75000 (10 sec @ 125 Hz, not 10 min)
     sample_rate: int = 125  # Hz
 
 
@@ -30,7 +31,7 @@ class ModelConfig:
     in_channels: int = 1
     latent_dim: int = 512
     bottleneck_dim: int = 768
-    num_blocks: int = 4
+    num_blocks: int = 3  # Phase 5A: changed from 4 (prevents over-compression of 1,250 samples)
     base_filters: int = 32
     max_filters: int = 512
 
@@ -42,13 +43,14 @@ class LossConfig:
     ssim_weight: float = 0.30
     fft_weight: float = 0.20
     ssim_window_size: int = 11
-    fft_norm: str = "ortho"  # or 'ortho'
+    fft_norm: str = "ortho"
+    fft_pad_size: int = 2048  # Phase 5A: changed from 131072 (was 2^17, now 2^11, 67x faster)
 
 
 @dataclass
 class AugmentationConfig:
     """Signal augmentation configuration."""
-    temporal_shift_range: float = 0.1  # ±10%
+    temporal_shift_range: float = 0.02  # Phase 5A: changed from 0.1 (±2% of 1250 = ±25 samples, not ±7500)
     amplitude_scale_range: tuple = (0.85, 1.15)
     baseline_wander_freq: float = 0.2  # Hz
     baseline_wander_amplitude: float = 0.05
@@ -59,16 +61,17 @@ class AugmentationConfig:
 @dataclass
 class TrainingConfig:
     """Training loop configuration."""
-    batch_size: int = 8
-    accumulation_steps: int = 4  # effective batch = 32
+    batch_size: int = 128  # Phase 5A: CRITICAL FIX - changed from 8 (windows are 60x smaller)
+    accumulation_steps: int = 1  # Phase 5A: CRITICAL FIX - changed from 4 (no longer needed with batch=128)
     num_epochs: int = 50
     learning_rate: float = 1e-3
     weight_decay: float = 1e-5
-    warmup_epochs: int = 5
+    warmup_epochs: int = 2  # Phase 5A: changed from 5 (smoother training on smaller windows)
     max_grad_norm: float = 1.0
     use_mixed_precision: bool = True
     num_workers: int = 4
     pin_memory: bool = True
+    early_stopping_patience: int = 15  # Phase 5A: changed from 5 (allow longer training for convergence)
 
 
 @dataclass
@@ -79,6 +82,13 @@ class SSLConfig:
     loss: LossConfig = None
     augmentation: AugmentationConfig = None
     training: TrainingConfig = None
+    
+    # Normalization and filtering (Phase 5A additions)
+    normalize_per_window: bool = True  # Phase 5A: Z-score normalization per 1,250-sample window
+    normalization_epsilon: float = 1e-8  # Phase 5A: epsilon for variance calculation
+    min_std_threshold: float = 1e-5  # Phase 5A: drop windows with std < this (dead sensors)
+    sqi_threshold_train: float = 0.4  # Phase 5A: lenient for SSL (encoder learns robustness)
+    sqi_threshold_eval: float = 0.7  # Phase 5A: strict for Phase 8 (ensure high-fidelity labels)
     
     # Environment
     project_root: Path = None
