@@ -165,13 +165,15 @@ class MIMICWindowGenerator:
         windows_array = np.array(windows_list, dtype=np.float32)  # [N, 1250]
         logger.info(f"Generated {windows_array.shape[0]} windows, shape: {windows_array.shape}")
         
-        # Save windows array
+        # Save windows array (convert Path to string for numpy compatibility)
+        output_array_path = Path(output_array_path) if not isinstance(output_array_path, Path) else output_array_path
         output_array_path.parent.mkdir(parents=True, exist_ok=True)
-        np.save(output_array_path, windows_array)
+        np.save(str(output_array_path), windows_array)
         logger.info(f"Saved windows to {output_array_path}")
         
         # Save metadata parquet
         metadata_df = pd.DataFrame(metadata_list)
+        output_metadata_path = Path(output_metadata_path) if not isinstance(output_metadata_path, Path) else output_metadata_path
         output_metadata_path.parent.mkdir(parents=True, exist_ok=True)
         metadata_df.to_parquet(output_metadata_path)
         logger.info(f"Saved metadata to {output_metadata_path} ({len(metadata_df)} rows)")
