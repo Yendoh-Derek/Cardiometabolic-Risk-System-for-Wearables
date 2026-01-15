@@ -11,10 +11,35 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
-from typing import Optional, Tuple, Union, Dict
+from typing import Optional, Tuple, Union, Dict, List
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def collate_fn_skip_none(batch: List) -> Tuple:
+    """
+    Custom collate function that skips samples returning None.
+    Used for quality/SQI filtering where some samples may be excluded.
+    
+    Args:
+        batch: List of (signal, target) tuples, some may be (None, None)
+    
+    Returns:
+        (signals_tensor, targets_tensor) with None samples removed
+    """
+    # Filter out None samples
+    batch = [item for item in batch if item[0] is not None and item[1] is not None]
+    
+    if len(batch) == 0:
+        # Return empty tensors if all samples were filtered
+        return torch.zeros(0, 1, 1250), torch.zeros(0, 1, 1250)
+    
+    # Stack remaining samples
+    signals = torch.stack([item[0] for item in batch], dim=0)
+    targets = torch.stack([item[1] for item in batch], dim=0)
+    
+    return signals, targets
 
 
 class PPGDataset(Dataset):
@@ -317,6 +342,7 @@ def create_dataloaders(
         num_workers=num_workers,
         pin_memory=pin_memory,
         drop_last=True,  # Drop incomplete batches for stability
+        collate_fn=collate_fn_skip_none,  # Skip quality-filtered samples
     )
     
     # Validation set (no augmentation)
@@ -337,6 +363,7 @@ def create_dataloaders(
         shuffle=False,
         num_workers=num_workers,
         pin_memory=pin_memory,
+        collate_fn=collate_fn_skip_none,  # Skip quality-filtered samples
     )
     
     # Test set (optional, no augmentation)
@@ -358,6 +385,7 @@ def create_dataloaders(
             shuffle=False,
             num_workers=num_workers,
             pin_memory=pin_memory,
+            collate_fn=collate_fn_skip_none,  # Skip quality-filtered samples
         )
     
     logger.info(f"DataLoaders created:")

@@ -220,6 +220,10 @@ Examples:
         test_meta_path = data_base / "ssl_test_data.parquet"
         denoised_index_path = data_base / "denoised_signal_index.json"
         
+        # Phase 5A: Use windowed signal array for training
+        windows_array_path = data_base / "mimic_windows.npy"
+        windows_metadata_path = data_base / "mimic_windows_metadata.parquet"
+        
         # Validate data paths exist
         logger.info(f"\nValidating data paths:")
         if not train_meta_path.exists():
@@ -236,6 +240,11 @@ Examples:
         else:
             logger.info(f"  ✓ Test:  {test_meta_path}")
         
+        if windows_array_path.exists():
+            logger.info(f"  ✓ Windowed signals (Phase 5A): {windows_array_path}")
+        else:
+            logger.warning(f"  ⚠ Windowed signals not found: {windows_array_path}")
+        
         if denoised_index_path.exists():
             logger.info(f"  ✓ Denoised index: {denoised_index_path}")
         else:
@@ -247,7 +256,7 @@ Examples:
             train_metadata_path=train_meta_path,
             val_metadata_path=val_meta_path,
             test_metadata_path=test_meta_path,
-            signal_array_path=None,
+            signal_array_path=windows_array_path,
             signal_dir=data_base / "denoised_signals",
             denoised_index_path=denoised_index_path,
             augmentation=augmentation,
