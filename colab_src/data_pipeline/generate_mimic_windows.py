@@ -20,6 +20,8 @@ import pandas as pd
 from pathlib import Path
 from typing import Optional, Dict, Tuple
 import logging
+import tempfile
+import shutil
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
@@ -74,20 +76,26 @@ class MIMICWindowGenerator:
         output_array_path: Path,
         output_metadata_path: Path,
         quality_metadata_path: Optional[Path] = None,
+        batch_size: int = 1000,
     ) -> Tuple[int, int]:
         """
-        Generate all overlapping windows from MIMIC signals.
+        Generate overlapping windows with batch saving to avoid memory issues.
+        
+        Uses memory mapping to write windows incrementally to disk instead of
+        loading all 653K windows (3GB) into memory at once.
         
         Args:
             output_array_path: Path to save windows.npy [N, 1250]
             output_metadata_path: Path to save windows_metadata.parquet
             quality_metadata_path: Path to original metadata (for SQI, SNR)
+            batch_size: Number of windows to keep in memory before flushing (1000 = ~5MB)
         
         Returns:
-            (total_windows_generated, total_windows_after_filtering)
+            (total_windows_generated, total_windows_kept)
         """
-        windows_list = []
-        metadata_list = []
+        # Initialize output paths
+        output_array_path = Path(output_array_path) if not isinstance(output_array_path, Path) else output_array_path
+        output_array_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Load quality metadata if provided
         quality_df = None
@@ -95,107 +103,146 @@ class MIMICWindowGenerator:
             quality_df = pd.read_parquet(quality_metadata_path)
             logger.info(f"Loaded quality metadata with {len(quality_df)} rows")
         
-        total_windows = 0
-        window_id = 0
+        # First pass: count total windows needed
+        logger.info("Scanning signals to estimate output size...")
+        total_windows_estimate = 0
+        signals_to_process = []
         
-        # Iterate through all signals
-        for signal_idx, signal_path_rel in tqdm(self.signal_index.items(), desc="Generating windows"):
-            try:
-                # Load signal
-                signal_path = self.signal_dir / signal_path_rel
-                if not signal_path.exists():
-                    logger.warning(f"Signal file not found: {signal_path}")
-                    continue
-                
-                signal = np.load(signal_path)  # [75000]
-                
-                # Validate signal
-                if len(signal) < self.window_length:
-                    logger.warning(f"Signal {signal_idx} too short ({len(signal)} < {self.window_length}), skipping")
-                    continue
-                
-                # Extract subject ID from metadata if available
-                subject_id = str(signal_idx).zfill(6)  # e.g., "000000", "004416"
-                
-                # Get SQI/SNR if available
-                sqi_score = 0.8  # Default
-                snr_db = 20.0  # Default
-                if quality_df is not None:
-                    try:
-                        quality_row = quality_df[quality_df['global_segment_idx'] == int(signal_idx)]
-                        if not quality_row.empty:
-                            sqi_score = float(quality_row.iloc[0].get('sqi_score', 0.8))
-                            snr_db = float(quality_row.iloc[0].get('snr_db', 20.0))
-                    except Exception as e:
-                        logger.warning(f"Could not retrieve quality metrics for signal {signal_idx}: {e}")
-                
-                # Extract overlapping windows
-                num_windows_in_signal = 0
-                for start in range(0, len(signal) - self.window_length + 1, self.stride):
-                    window = signal[start:start + self.window_length].astype(np.float32)
-                    
-                    # Validate window
-                    if len(window) != self.window_length:
-                        continue
-                    
-                    windows_list.append(window)
-                    
-                    # Record metadata (STRING subject_id for Phase 8 compatibility)
-                    metadata_list.append({
-                        'window_id': window_id,
-                        'source_signal_id': signal_idx,
-                        'subject_id': subject_id,  # STRING: e.g., "000000"
-                        'start_sample': start,
-                        'sqi_score': sqi_score,
-                        'snr_db': snr_db,
-                        'is_normalized': False,  # Will be normalized in DataLoader
-                    })
-                    
-                    window_id += 1
-                    num_windows_in_signal += 1
-                    total_windows += 1
-                
-                logger.debug(f"Signal {signal_idx}: {num_windows_in_signal} windows extracted")
+        for signal_idx, signal_path_rel in self.signal_index.items():
+            signal_path = self.signal_dir / signal_path_rel
+            if signal_path.exists():
+                signal_len = np.load(signal_path, mmap_mode='r').shape[0]
+                if signal_len >= self.window_length:
+                    n_windows = max(0, (signal_len - self.window_length) // self.stride + 1)
+                    total_windows_estimate += n_windows
+                    signals_to_process.append((signal_idx, signal_path_rel, n_windows))
+        
+        logger.info(f"Estimated total windows: {total_windows_estimate:,}")
+        
+        # Create memory-mapped output array
+        logger.info(f"Creating memory-mapped output array: ({total_windows_estimate:,}, {self.window_length})")
+        
+        # Use a temporary directory for the memmap
+        temp_dir = tempfile.mkdtemp()
+        temp_memmap_path = Path(temp_dir) / "temp_windows.dat"
+        
+        windows_memmap = np.memmap(
+            str(temp_memmap_path),
+            dtype=np.float32,
+            mode='w+',
+            shape=(total_windows_estimate, self.window_length)
+        )
+        
+        try:
+            # Process signals in batches and write directly to disk
+            batch_windows = []
+            metadata_list = []
+            total_windows = 0
+            window_id = 0
             
-            except Exception as e:
-                logger.error(f"Error processing signal {signal_idx}: {e}")
-                continue
+            for signal_idx, signal_path_rel, n_windows_in_signal in tqdm(signals_to_process, desc="Generating windows"):
+                try:
+                    # Load signal using memory mapping
+                    signal_path = self.signal_dir / signal_path_rel
+                    signal = np.load(signal_path, mmap_mode='r')
+                    
+                    # Extract subject ID
+                    subject_id = str(signal_idx).zfill(6)
+                    
+                    # Get SQI/SNR if available
+                    sqi_score = 0.8
+                    snr_db = 20.0
+                    if quality_df is not None:
+                        try:
+                            quality_row = quality_df[quality_df['global_segment_idx'] == int(signal_idx)]
+                            if not quality_row.empty:
+                                sqi_score = float(quality_row.iloc[0].get('sqi_score', 0.8))
+                                snr_db = float(quality_row.iloc[0].get('snr_db', 20.0))
+                        except Exception as e:
+                            logger.warning(f"Could not retrieve quality metrics for signal {signal_idx}: {e}")
+                    
+                    # Extract overlapping windows
+                    num_windows_in_signal = 0
+                    for start in range(0, len(signal) - self.window_length + 1, self.stride):
+                        window = signal[start:start + self.window_length].astype(np.float32)
+                        
+                        if len(window) != self.window_length:
+                            continue
+                        
+                        # Add to batch
+                        batch_windows.append((total_windows, window))
+                        
+                        # Record metadata
+                        metadata_list.append({
+                            'window_id': window_id,
+                            'source_signal_id': signal_idx,
+                            'subject_id': subject_id,
+                            'start_sample': start,
+                            'sqi_score': sqi_score,
+                            'snr_db': snr_db,
+                            'is_normalized': False,
+                        })
+                        
+                        window_id += 1
+                        num_windows_in_signal += 1
+                        total_windows += 1
+                        
+                        # Flush batch to disk when size reached
+                        if len(batch_windows) >= batch_size:
+                            for idx, wnd in batch_windows:
+                                windows_memmap[idx] = wnd
+                            windows_memmap.flush()
+                            batch_windows = []
+                            logger.info(f"Flushed {total_windows:,} windows to disk...")
+                    
+                    logger.debug(f"Signal {signal_idx}: {num_windows_in_signal} windows extracted")
+                
+                except Exception as e:
+                    logger.error(f"Error processing signal {signal_idx}: {e}")
+                    continue
+            
+            # Flush remaining batch
+            if batch_windows:
+                for idx, wnd in batch_windows:
+                    windows_memmap[idx] = wnd
+                windows_memmap.flush()
+            
+            logger.info(f"Generated {total_windows:,} windows, shape: ({total_windows}, {self.window_length})")
+            
+            # Save memmap to proper numpy .npy file format
+            logger.info(f"Saving windows to {output_array_path}...")
+            np.save(str(output_array_path), windows_memmap[:total_windows])  # Only save actual data
+            logger.info(f"✅ Saved windows to {output_array_path}")
+            
+            # Save metadata parquet
+            metadata_df = pd.DataFrame(metadata_list)
+            output_metadata_path = Path(output_metadata_path) if not isinstance(output_metadata_path, Path) else output_metadata_path
+            output_metadata_path.parent.mkdir(parents=True, exist_ok=True)
+            metadata_df.to_parquet(output_metadata_path)
+            logger.info(f"Saved metadata to {output_metadata_path} ({len(metadata_df)} rows)")
+            
+            # Log quality statistics
+            logger.info("=" * 60)
+            logger.info("WINDOW GENERATION SUMMARY")
+            logger.info("=" * 60)
+            logger.info(f"Total windows generated: {total_windows:,}")
+            logger.info(f"Signals processed: {len(signals_to_process)}")
+            logger.info(f"Windows per signal (avg): {total_windows / len(signals_to_process):.1f}")
+            if len(metadata_df) > 0:
+                logger.info(f"SQI score range: [{metadata_df['sqi_score'].min():.2f}, {metadata_df['sqi_score'].max():.2f}]")
+                logger.info(f"SNR range: [{metadata_df['snr_db'].min():.1f}, {metadata_df['snr_db'].max():.1f}] dB")
+            logger.info("=" * 60)
+            
+            return total_windows, total_windows
         
-        # Stack windows into array
-        windows_array = np.array(windows_list, dtype=np.float32)  # [N, 1250]
-        logger.info(f"Generated {windows_array.shape[0]} windows, shape: {windows_array.shape}")
-        
-        # Save windows array (convert Path to string for numpy compatibility)
-        output_array_path = Path(output_array_path) if not isinstance(output_array_path, Path) else output_array_path
-        output_array_path.parent.mkdir(parents=True, exist_ok=True)
-        np.save(str(output_array_path), windows_array)
-        logger.info(f"Saved windows to {output_array_path}")
-        
-        # Save metadata parquet
-        metadata_df = pd.DataFrame(metadata_list)
-        output_metadata_path = Path(output_metadata_path) if not isinstance(output_metadata_path, Path) else output_metadata_path
-        output_metadata_path.parent.mkdir(parents=True, exist_ok=True)
-        metadata_df.to_parquet(output_metadata_path)
-        logger.info(f"Saved metadata to {output_metadata_path} ({len(metadata_df)} rows)")
-        
-        # Log quality statistics
-        logger.info("=" * 60)
-        logger.info("WINDOW GENERATION SUMMARY")
-        logger.info("=" * 60)
-        logger.info(f"Total windows generated: {total_windows}")
-        logger.info(f"Signals processed: {len(metadata_list) / max(1, (total_windows / num_windows_in_signal)) if total_windows > 0 else 0:.0f}")
-        logger.info(f"Windows per signal (avg): {total_windows / len(self.signal_index):.1f}")
-        logger.info(f"SQI score range: [{metadata_df['sqi_score'].min():.2f}, {metadata_df['sqi_score'].max():.2f}]")
-        logger.info(f"SNR range: [{metadata_df['snr_db'].min():.1f}, {metadata_df['snr_db'].max():.1f}] dB")
-        logger.info("=" * 60)
-        
-        return total_windows, len(windows_array)
+        finally:
+            # Always clean up temp files
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def main():
     """Main entry point."""
     import sys
-    from pathlib import Path
     
     # Paths
     project_root = Path(__file__).parent.parent.parent
