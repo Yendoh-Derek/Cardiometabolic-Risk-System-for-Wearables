@@ -1,21 +1,21 @@
-# Cardiometabolic Risk Estimation — Codebase Structure (Phase 5-8 Pivot)
+# Cardiometabolic Risk Estimation — Codebase Structure (Phase 5B In Execution)
 
-**Updated**: January 14, 2026  
-**Status**: Ready for Phase 5A Refactoring  
-**Architecture**: Self-Supervised Learning on Overlapping 10-Second Windows → Transfer Learning Validation on VitalDB
+**Updated**: January 20, 2026  
+**Status**: Phase 5B Training In Progress  
+**Architecture**: Self-Supervised Learning on 653,716 Overlapping 10-Second Windows → Transfer Learning Validation on VitalDB
 
 ---
 
-## 🔄 CRITICAL PIVOT: Window Size & Architecture Changes
+## 🔄 CRITICAL PIVOT: Window Size & Architecture Changes (Phase 5A Complete)
 
-| Parameter            | Old (Phase 4)           | New (Phase 5+)              | Rationale                                                     |
-| -------------------- | ----------------------- | --------------------------- | ------------------------------------------------------------- |
-| **Window size**      | 75,000 samples (10 min) | 1,250 samples (10 sec)      | Preserve micro-morphology, reduce over-compression            |
-| **Encoder blocks**   | 4                       | 3                           | Prevent excessive downsampling of 1,250-sample input          |
-| **Training samples** | 4,133 signals           | 617,000 overlapping windows | 60× data expansion via stride-500 sliding window              |
-| **Batch size**       | 8                       | **128**                     | ✅ Critical fix: GPU utilization, better BatchNorm            |
-| **FFT padding**      | 2^17 (131,072)          | **2^11 (2,048)**            | ✅ Critical fix: 67× faster, eliminate 99% zero-padding waste |
-| **Data split**       | Window-level            | **Subject-level (caseid)**  | ✅ Critical fix: Prevent data leakage in Phase 8              |
+| Parameter            | Old (Phase 4)           | New (Phase 5+)              | Status               | Rationale                                               |
+| -------------------- | ----------------------- | --------------------------- | -------------------- | ------------------------------------------------------- |
+| **Window size**      | 75,000 samples (10 min) | 1,250 samples (10 sec)      | ✅ Implemented       | Preserve micro-morphology, reduce over-compression      |
+| **Encoder blocks**   | 4                       | 3                           | ✅ Verified          | Prevent excessive downsampling of 1,250-sample input    |
+| **Training samples** | 4,133 signals           | 653,716 overlapping windows | ✅ Generated         | 60× data expansion via stride-500 sliding window        |
+| **Batch size**       | 8                       | **128**                     | ✅ Confirmed in code | GPU utilization, better BatchNorm, 10× faster epochs    |
+| **FFT padding**      | 2^17 (131,072)          | **2^11 (2,048)**            | ✅ Verified in code  | 67× faster loss computation, eliminate 99% zero-padding |
+| **Data split**       | Window-level            | **Subject-level (STRING)**  | ✅ Confirmed in code | Prevent data leakage in Phase 8 transfer learning       |
 
 ---
 
@@ -24,13 +24,15 @@
 ```
 cardiometabolic-risk-colab/
 │
-├── docs/ # Documentation (updated January 14, 2026)
-│ ├── IMPLEMENTATION_PLAN_PHASES_0-8.md # Master plan with all 3 critical fixes
-│ ├── FINAL_CRITICAL_FIXES_SUMMARY.md # Detailed fix documentation
-│ ├── architecture.md # System design (this file — updated)
-│ ├── codebase.md # File structure (this file — updated)
-│ ├── PROJECT_STATUS.md # Current status & known issues
-│ └── PROGRESS_CURRENT.md # Phase-by-phase progress tracking
+├── docs/ # Documentation (Updated January 20, 2026 - Cleaned up)
+│ ├── PROJECT_STATUS.md # ✅ Master status - Phase 5B current
+│ ├── architecture.md # System design (complete)
+│ ├── codebase.md # This file (structure reference)
+│ ├── IMPLEMENTATION_PLAN_PHASES_0-8.md # Master roadmap
+│ └── PHASE_5A_COMPLETE.txt # Phase 5A completion marker
+│
+│ [REMOVED - January 20, 2026: 14 obsolete .md files]
+│ [architecture_old.md, codebase_old.md, CRITICAL_FIXES_APPLIED.md, etc.]
 │
 ├── colab_src/ # Core Python modules (SSL pretraining)
 │ ├── __init__.py
@@ -41,7 +43,7 @@ cardiometabolic-risk-colab/
 │ │ ├── decoder.py # ResNetDecoder: [B,512] → [B,1,1250] (mirror architecture)
 │ │ ├── losses.py # Hybrid loss: MSE(50%) + SSIM(30%) + FFT(20%)
 │ │ ├── augmentation.py # PPGAugmentation: temporal shift, amplitude scale, noise, baseline wander
-│ │ ├── dataloader.py # PPGDataset: lazy-load 617k windowed samples
+│ │ ├── dataloader.py # PPGDataset: lazy-load 653,716 windowed samples with SQI filtering
 │ │ ├── trainer.py # Training loop with checkpoint-resume & gradient accumulation
 │ │ ├── train.py # CLI entry point for Phase 5B (Colab)
 │ │ ├── config.py # YAML config loader
@@ -89,17 +91,18 @@ cardiometabolic-risk-colab/
 │ ├── report_generator.py # Markdown report with AUROC/CI
 │ └── visualization.py # ROC curves, embedding plots
 │
-├── data/ # All datasets (Colab storage)
+├── data/ # All datasets (Colab storage) - Phase 5A Complete
 │ ├── raw/
 │ │ └── RECORDS-waveforms # MIMIC file index
 │ │
-│ ├── processed/
-│ │ ├── mimic_signals_denoised/ # 4,417 denoised 75k-sample signals (.npy)
-│ │ ├── mimic_windows.npy # NEW: [617,000 × 1,250] windowed samples
-│ │ ├── mimic_windows_metadata.parquet # Window-level metadata (segment_id, subject_id, sqi_score)
-│ │ ├── ssl_embeddings.npy # Phase 7: [617,000 × 512] window embeddings
-│ │ ├── ssl_embeddings_aggregated.npy # Phase 7: [4,417 × 512] signal-level embeddings (mean)
-│ │ └── ssl_features_final.parquet # Phase 7: [4,417 × 515] (512 SSL + 3 quality dims)
+│ ├── processed/ # ✅ Phase 5A Data
+│ │ ├── mimic_windows.npy # [653,716 × 1,250] windowed samples (3.04 GB)
+│ │ ├── mimic_windows_metadata.parquet # Window metadata with subject_id (STRING)
+│ │ ├── ssl_pretraining_data.parquet # Training split (subject-level, ~520K windows)
+│ │ ├── ssl_validation_data.parquet # Validation split (subject-level, ~18K windows)
+│ │ ├── denoised_signal_index.json # Signal ID mapping
+│ │ ├── denoised_signals/ # Per-file denoised signals (backup)
+│ │ └── ssl_embeddings.npy # Phase 7: [653,716 × 512] window embeddings (future)
 │ │
 │ ├── metadata/
 │ │ ├── signal_metadata.parquet # 4,417 rows: subject_id, signal_length, sqi_score, snr_db
@@ -108,15 +111,13 @@ cardiometabolic-risk-colab/
 │ └── cache/
 │ └── temporary processing files
 │
-├── checkpoints/ # Model weights (Colab)
-│ ├── phase5/
-│ │ ├── checkpoint_epoch_001.pt
-│ │ ├── checkpoint_epoch_010.pt
-│ │ ├── checkpoint_epoch_020.pt
-│ │ └── best_encoder.pt # Best validation loss model
+├── checkpoints/ # Model weights (Colab) - Phase 5B In Progress
+│ ├── ssl/ # ⏳ Phase 5B checkpoints
+│ │ ├── best_encoder.pt # Best validation loss model (target)
+│ │ └── checkpoint_epoch_*.pt # Periodic checkpoints (if saving enabled)
 │ │
 │ └── phase3/ # Legacy checkpoints (kept for reference)
-│ ├── checkpoint_pilot.pt
+│ ├── checkpoint_pilot.pt # Phase 3 pilot
 │ └── metrics_pilot.json
 │
 ├── artifacts/ # Evaluation outputs
@@ -188,13 +189,9 @@ cardiometabolic-risk-colab/
 │ ├── model_card.md # Model documentation
 │ └── training_config.yaml # Hyperparameters used
 │
-├── context/ # Documentation & tracking (January 14 updated)
-│ ├── PROJECT_STATUS.md # Overall project status
-│ ├── PROGRESS_CURRENT.md # Phase-by-phase progress
-│ ├── IMPLEMENTATION_PLAN_PHASES_0-8.md # Master plan (GitHub)
-│ ├── CRITICAL_FIXES_APPLIED.md # Three flaws fixed (GitHub)
-│ ├── FINAL_CRITICAL_FIXES_SUMMARY.md # Fix details (GitHub)
-│ └── CLEANUP_FINAL.md # Cleanup documentation
+├── context/ # Documentation & tracking (Updated January 20, 2026)
+│ ├── CLEANUP_SUMMARY.md # Documentation cleanup log
+│ └── (Context folder for internal reference - content merged into docs/)
 │
 ├── requirements.txt # Python dependencies
 ├── .gitignore # Git ignore patterns
@@ -206,41 +203,44 @@ cardiometabolic-risk-colab/
 
 ## Module Descriptions by Phase
 
-### **Phase 0: Data Preparation** (Complete)
+### **Phase 0: Data Preparation** ✅ Complete
 
 - **mimic_ingestion.py**: Download 4,417 PPG signals from MIMIC-III
 - **signal_preprocessing.py**: Filter + denoise → 4,417 clean signals
 - **dataset_assembly.py**: Create parquet metadata index
 
-### **Phase 5A: Architecture Refactoring** (4-5 hours local)
+### **Phase 5A: Architecture Refactoring** ✅ Complete (Verified January 20)
 
-- **encoder.py**: Refactor to 3 blocks, accept [B,1,1250] input
-- **decoder.py**: Refactor to mirror architecture, output [B,1,1250]
-- **augmentation.py**: Rescale temporal_shift_pct for small windows
-- **generate_mimic_windows.py**: Generate 617k overlapping windows
-- **train.py**: CLI with config loading & reproducibility seed
-- **configs/ssl_pretraining.yaml**: Update batch_size, fft_pad_size, warmup, patience
+- **encoder.py**: ✅ 3 blocks, accepts [B,1,1250] input, outputs [B,512]
+- **decoder.py**: ✅ Mirror architecture, outputs [B,1,1250]
+- **augmentation.py**: ✅ Window-aware (temporal_shift_range=0.02)
+- **generate_mimic_windows.py**: ✅ Generated 653,716 overlapping windows
+- **dataloader.py**: ✅ Window-based loading with SQI filtering
+- **train.py**: ✅ CLI with auto-device detection
+- **configs/ssl_pretraining.yaml**: ✅ Updated (batch_size=128, fft_pad_size=2048)
 
-### **Phase 5B: Full Pretraining** (12-18 hours Colab T4)
+### **Phase 5B: Full Pretraining** ⏳ In Progress (Started January 20)
 
-- **trainer.py**: Execute 50 epochs on 617k samples
-- **losses.py**: Hybrid loss with optimized FFT padding
-- **checkpoint_manager.py**: Save/resume on timeout
+- **trainer.py**: Executing 50 epochs on 653,716 samples
+- **losses.py**: ✅ Hybrid loss with optimized FFT padding (2048)
+- **checkpoint_manager.py**: Auto-resume on timeout
+- **Expected Timeline**: 50-90 minutes on T4 GPU
+- **Success Criteria**: Val loss plateaus, train loss shows 55%+ reduction
 
-### **Phase 6: Validation** (1 hour Colab)
+### **Phase 6: Validation** ⏬ Planned
 
-- **reconstruction_metrics.py**: SSIM, MSE, correlation
+- **reconstruction_metrics.py**: SSIM, MSE, correlation (target: >0.85, <0.005)
 - **embedding_analysis.py**: Variance checks, PCA visualization
 
-### **Phase 7: Feature Extraction** (30 min Colab)
+### **Phase 7: Feature Extraction** ⏬ Planned
 
 - **dataloader.py**: Batch load embeddings
 - **feature_combiner.py**: Combine SSL + classical features
-- **ssl_features_final.parquet**: [4,417 × 515] final matrix
+- **Output**: [4,417 × 546] feature matrix
 
-### **Phase 8: Transfer Learning** (2 hours Colab)
+### **Phase 8: Transfer Learning** ⏬ Planned
 
-- **vitaldb_transfer.py**: ✅ **Critical fix #3**: Split by caseid, not windows
+- **vitaldb_transfer.py**: ✅ **Critical fix #3 implemented**: Split by subject_id (STRING), not windows
 - **transfer_learning_eval.py**: Compute AUROC per condition
 - **report_generator.py**: Markdown report with interpretation
 
@@ -298,13 +298,13 @@ Phase 0: 4,417 MIMIC signals (75k samples each)
     ↓ [filter, denoise, quality check]
 Phase 1-4: Codebase validation (existing)
     ↓ [generate overlapping windows]
-Phase 5A: 617,000 overlapping 1,250-sample windows
+Phase 5A: ✅ 653,716 overlapping 1,250-sample windows (generated, verified)
     ↓ [train encoder 50 epochs]
-Phase 5B: Trained encoder (best_encoder.pt)
+Phase 5B: ⏳ Trained encoder (best_encoder.pt) - IN PROGRESS
     ↓ [extract latent vectors]
 Phase 6: Reconstruction validation (SSIM >0.85, MSE <0.005)
     ↓ [aggregate & combine with classical features]
-Phase 7: 4,417 × 515 feature matrix (512 SSL + 3 metadata)
+Phase 7: 4,417 × 546 feature matrix (512 SSL + 28 HRV + 6 morphology)
     ↓ [frozen encoder + VitalDB labels]
 Phase 8: Cross-subject AUROC per condition (Hypertension/Diabetes/Obesity)
     ↓ [report & interpretation]
@@ -313,6 +313,7 @@ Final: Model documentation & deployment artifacts
 
 ---
 
-**Status**: ✅ Ready for Phase 5A Implementation  
-**Last Updated**: January 14, 2026  
-**All Critical Fixes Applied**: Yes
+**Status**: ⏳ Phase 5B In Execution (Started Jan 20, 2026)  
+**Last Updated**: January 20, 2026  
+**All Critical Fixes Applied & Verified**: Yes  
+**Documentation Cleaned**: 14 obsolete .md files removed (Jan 20)
