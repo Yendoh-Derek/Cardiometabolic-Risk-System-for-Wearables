@@ -39,6 +39,10 @@ class ModelConfig:
 @dataclass
 class LossConfig:
     """Loss function weights and parameters."""
+    # Mode switch for fast debugging:
+    # - "hybrid": use mse/ssim/fft weights as configured
+    # - "mse": force pure MSE loss (ssim=0, fft=0) regardless of weights
+    mode: str = "hybrid"
     mse_weight: float = 0.50
     ssim_weight: float = 0.30
     fft_weight: float = 0.20

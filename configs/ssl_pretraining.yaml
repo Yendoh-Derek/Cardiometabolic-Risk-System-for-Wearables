@@ -22,6 +22,7 @@ model:
   max_filters: 512
 
 loss:
+  mode: "hybrid" # "hybrid" (default) or "mse" (debug: disable SSIM/FFT)
   mse_weight: 0.50
   ssim_weight: 0.30
   fft_weight: 0.20

@@ -169,13 +169,22 @@ Examples:
         trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         logger.info(f"Model parameters: {total_params:,} ({trainable_params:,} trainable)")
         
-        # Loss function
+        # Loss function (supports debug mode via config.loss.mode)
+        loss_mode = getattr(config.loss, "mode", "hybrid")
+        if loss_mode == "mse":
+            mse_w, ssim_w, fft_w = 1.0, 0.0, 0.0
+            logger.info("🧪 Loss mode: mse (forcing pure MSE; SSIM/FFT disabled)")
+        else:
+            mse_w, ssim_w, fft_w = config.loss.mse_weight, config.loss.ssim_weight, config.loss.fft_weight
+            logger.info(f"Loss mode: {loss_mode} (using configured weights)")
+
         loss_fn = SSLLoss(
-            mse_weight=config.loss.mse_weight,
-            ssim_weight=config.loss.ssim_weight,
-            fft_weight=config.loss.fft_weight,
+            mse_weight=mse_w,
+            ssim_weight=ssim_w,
+            fft_weight=fft_w,
             ssim_window_size=config.loss.ssim_window_size,
             fft_norm=config.loss.fft_norm,
+            fft_pad_size=config.loss.fft_pad_size,
         )
         loss_fn = loss_fn.to(config.device)
         
@@ -270,6 +279,7 @@ Examples:
             min_std_threshold=config.min_std_threshold,
             sqi_threshold_train=config.sqi_threshold_train,
             sqi_threshold_eval=config.sqi_threshold_eval,
+            window_length=config.data.signal_length,
         )
         
         logger.info(f"DataLoaders created successfully\n")

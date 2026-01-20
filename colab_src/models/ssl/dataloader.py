@@ -63,6 +63,7 @@ class PPGDataset(Dataset):
         normalize: bool = True,
         device: str = 'cpu',
         load_in_memory: bool = False,
+        window_length: int = 1250,
         normalize_per_window: bool = True,  # Phase 5A: Z-score normalization
         normalization_epsilon: float = 1e-8,  # Phase 5A: epsilon for variance
         min_std_threshold: float = 1e-5,  # Phase 5A: drop dead sensors
@@ -110,6 +111,7 @@ class PPGDataset(Dataset):
         self.augmentation = augmentation
         self.normalize = normalize
         self.load_in_memory = load_in_memory
+        self.window_length = int(window_length)
         
         # Phase 5A: New normalization parameters
         self.normalize_per_window = normalize_per_window
@@ -164,7 +166,11 @@ class PPGDataset(Dataset):
         
         # Try signal array first
         if self.signal_array is not None:
-            return self.signal_array[idx].astype(np.float32)
+            # IMPORTANT: for windowed SSL, idx is the row index into metadata,
+            # not necessarily the row index into mimic_windows.npy. Always use
+            # the metadata's index column (global_segment_idx) when present.
+            seg_idx = self.metadata_df.iloc[idx]['global_segment_idx']
+            return self.signal_array[int(seg_idx)].astype(np.float32)
         
         # Try per-segment file
         segment_id = self.metadata_df.iloc[idx]['global_segment_idx']
@@ -188,10 +194,37 @@ class PPGDataset(Dataset):
         """Load denoised (ground truth) signal."""
         if idx in self.denoised_cache:
             return self.denoised_cache[idx]
-        
-        segment_id = self.metadata_df.iloc[idx]['global_segment_idx']
+
+        row = self.metadata_df.iloc[idx]
+
+        # Phase 5B (windowed): if we have source_signal_id + start_sample,
+        # load the *full denoised signal* for that source signal and slice the
+        # corresponding window as the target. This prevents the accidental
+        # identity mapping (x -> x) when global_segment_idx is a window_id.
+        if (
+            'source_signal_id' in self.metadata_df.columns and
+            'start_sample' in self.metadata_df.columns and
+            self.denoised_index
+        ):
+            try:
+                source_signal_id = str(int(row['source_signal_id']))
+                start_sample = int(row['start_sample'])
+                if source_signal_id in self.denoised_index:
+                    denoised_path = self.project_root / self.denoised_index[source_signal_id]
+                    if denoised_path.exists():
+                        full = np.load(denoised_path, mmap_mode='r')
+                        end = start_sample + self.window_length
+                        if end <= full.shape[0]:
+                            window = np.asarray(full[start_sample:end], dtype=np.float32)
+                            if window.shape[0] == self.window_length:
+                                return window
+            except Exception:
+                # Fall back to legacy behavior below
+                pass
+
+        # Legacy: segment-level denoised target (if global_segment_idx maps to a segment id)
+        segment_id = row['global_segment_idx']
         segment_id_str = str(int(segment_id))
-        
         if segment_id_str in self.denoised_index:
             denoised_path = self.project_root / self.denoised_index[segment_id_str]
             if denoised_path.exists():
@@ -305,6 +338,7 @@ def create_dataloaders(
     min_std_threshold: float = 1e-5,
     sqi_threshold_train: float = 0.4,
     sqi_threshold_eval: float = 0.7,
+    window_length: int = 1250,
 ):
     """
     Create DataLoaders for training, validation, and testing.
@@ -338,6 +372,7 @@ def create_dataloaders(
         normalize=True,
         device=device,
         load_in_memory=load_in_memory,
+        window_length=window_length,
         normalize_per_window=normalize_per_window,
         normalization_epsilon=normalization_epsilon,
         min_std_threshold=min_std_threshold,
@@ -364,6 +399,7 @@ def create_dataloaders(
         normalize=True,
         device=device,
         load_in_memory=load_in_memory,
+        window_length=window_length,
         normalize_per_window=normalize_per_window,
         normalization_epsilon=normalization_epsilon,
         min_std_threshold=min_std_threshold,
@@ -390,6 +426,7 @@ def create_dataloaders(
             normalize=True,
             device=device,
             load_in_memory=load_in_memory,
+            window_length=window_length,
             normalize_per_window=normalize_per_window,
             normalization_epsilon=normalization_epsilon,
             min_std_threshold=min_std_threshold,
