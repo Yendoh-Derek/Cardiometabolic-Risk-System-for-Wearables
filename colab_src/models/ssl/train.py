@@ -265,6 +265,11 @@ Examples:
             pin_memory=config.training.pin_memory,
             device=config.device,
             load_in_memory=args.load_in_memory,
+            normalize_per_window=config.normalize_per_window,
+            normalization_epsilon=config.normalization_epsilon,
+            min_std_threshold=config.min_std_threshold,
+            sqi_threshold_train=config.sqi_threshold_train,
+            sqi_threshold_eval=config.sqi_threshold_eval,
         )
         
         logger.info(f"DataLoaders created successfully\n")
@@ -290,7 +295,7 @@ Examples:
             train_loader=dataloaders['train'],
             val_loader=dataloaders['val'],
             num_epochs=config.training.num_epochs,
-            early_stopping_patience=10,
+            early_stopping_patience=config.training.early_stopping_patience,
         )
         
         # Save history

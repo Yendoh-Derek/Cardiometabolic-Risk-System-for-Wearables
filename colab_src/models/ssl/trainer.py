@@ -278,7 +278,7 @@ class SSLTrainer:
                 logger.info(f"  ✓ Best model updated (loss: {self.best_val_loss:.4f})")
             else:
                 patience_counter += 1
-                logger.info(f"  Patience: {patience_counter}/10")
+                logger.info(f"  Patience: {patience_counter}/{early_stopping_patience}")
                 
                 # Early stopping
                 if patience_counter >= early_stopping_patience:

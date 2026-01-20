@@ -187,11 +187,19 @@ class SSLLoss(nn.Module):
             pred = pred.unsqueeze(1)
         if target.dim() == 2:
             target = target.unsqueeze(1)
-        
-        # Compute individual losses
-        mse_loss_val = self.mse_loss(pred, target)
-        ssim_loss_val = self.ssim_loss(pred, target)
-        fft_loss_val = self.fft_loss(pred, target)
+
+        # NOTE: Training often runs under torch.cuda.amp.autocast, which will
+        # cast tensors to Half/ComplexHalf. torch.fft + angle on ComplexHalf is
+        # still experimental and was the source of NaNs during Phase 5B.
+        # To keep the model forward in AMP while making the loss numerically
+        # stable, we force all loss computations to run in float32 here.
+        pred_f32 = pred.float()
+        target_f32 = target.float()
+
+        # Compute individual losses in float32
+        mse_loss_val = self.mse_loss(pred_f32, target_f32)
+        ssim_loss_val = self.ssim_loss(pred_f32, target_f32)
+        fft_loss_val = self.fft_loss(pred_f32, target_f32)
         
         # Weighted combination
         total_loss = (

@@ -300,6 +300,11 @@ def create_dataloaders(
     pin_memory: bool = True,
     device: str = 'cpu',
     load_in_memory: bool = False,
+    normalize_per_window: bool = True,
+    normalization_epsilon: float = 1e-8,
+    min_std_threshold: float = 1e-5,
+    sqi_threshold_train: float = 0.4,
+    sqi_threshold_eval: float = 0.7,
 ):
     """
     Create DataLoaders for training, validation, and testing.
@@ -333,6 +338,10 @@ def create_dataloaders(
         normalize=True,
         device=device,
         load_in_memory=load_in_memory,
+        normalize_per_window=normalize_per_window,
+        normalization_epsilon=normalization_epsilon,
+        min_std_threshold=min_std_threshold,
+        sqi_threshold=sqi_threshold_train,
     )
     
     dataloaders['train'] = DataLoader(
@@ -355,6 +364,10 @@ def create_dataloaders(
         normalize=True,
         device=device,
         load_in_memory=load_in_memory,
+        normalize_per_window=normalize_per_window,
+        normalization_epsilon=normalization_epsilon,
+        min_std_threshold=min_std_threshold,
+        sqi_threshold=sqi_threshold_eval,
     )
     
     dataloaders['val'] = DataLoader(
@@ -377,6 +390,10 @@ def create_dataloaders(
             normalize=True,
             device=device,
             load_in_memory=load_in_memory,
+            normalize_per_window=normalize_per_window,
+            normalization_epsilon=normalization_epsilon,
+            min_std_threshold=min_std_threshold,
+            sqi_threshold=sqi_threshold_eval,
         )
         
         dataloaders['test'] = DataLoader(
