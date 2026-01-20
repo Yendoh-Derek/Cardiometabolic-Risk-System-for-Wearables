@@ -41,7 +41,7 @@ training:
   batch_size: 128 # Phase 5A: CRITICAL FIX - increased from 8 (windows are 60x smaller)
   accumulation_steps: 1 # Phase 5A: CRITICAL FIX - changed from 4 (no longer needed)
   num_epochs: 50
-  learning_rate: 1.0e-3
+  learning_rate: 1.0e-4
   weight_decay: 1.0e-5
   warmup_epochs: 2 # Phase 5A: changed from 5 (smoother training on smaller windows)
   max_grad_norm: 1.0
