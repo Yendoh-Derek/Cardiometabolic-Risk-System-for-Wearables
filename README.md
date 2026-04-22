@@ -167,16 +167,3 @@ If you use this codebase, please cite:
   year={2026},
   note={Based on MIMIC-III Matched Subset}
 }
-```
-
----
-
-## License
-
-MIT License — See LICENSE file
-
----
-
-## Questions?
-
-See [context/](context/) directory for detailed technical documentation.
