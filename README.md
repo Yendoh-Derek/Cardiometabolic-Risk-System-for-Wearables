@@ -1,36 +1,3 @@
-# Cardiometabolic Risk from PPG Signals
-
-## Completion Status
-
-- Phase 0–3: ✅ COMPLETE (Data prep + SSL modules + pilot training)
-- Phase 4: ✅ COMPLETE (Colab deployment setup)
-- Phase 5–8: 🚀 READY (Colab GPU training → production API)
-
-### Phase 0-3 Outputs
-
-- **Data**: 4,417 PPG signals (train: 4,133, val: 200, test: 84)
-- **SSL Modules**: 9 production-ready modules (encoder, decoder, losses, augmentation, trainer)
-- **Tests**: 39 passing, 0 failures
-- **Validation**: Pilot training 1 epoch, loss 6.88→2.06 (70% convergence ✓)
-
-### Phase 4 Deliverables
-
-- **Validation Script**: `validate_phase4.py` — Quick module checks (<5 seconds)
-- **Colab Notebook**: `notebooks/05_ssl_pretraining_colab.ipynb` — Single-page orchestration
-- **Utils Helper**: `colab_src/utils/colab_utils.py` — Optional Colab detection
-- **Documentation**: Updated README with Phase 5-8 roadmap
-
-### Phase 5-8 Roadmap
-
-| Phase | Goal                                  | Duration | Gate                                        |
-| ----- | ------------------------------------- | -------- | ------------------------------------------- |
-| **5** | Full 50-epoch training on Colab T4    | 8–12h    | Val loss <0.01, SSIM >0.80                  |
-| **6** | Linear probe evaluation               | 1–2h     | AUROC >0.65 on ≥1 cardiometabolic condition |
-| **7** | Extract embeddings + crafted features | 30min    | 551-dim feature matrix ready                |
-| **8** | XGBoost downstream models             | 2–3h     | AUROC ≥0.70 on ≥2 conditions                |
-
----
-
 ## Quick Start
 
 ### Local Development
