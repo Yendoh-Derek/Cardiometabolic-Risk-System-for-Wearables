@@ -105,57 +105,6 @@ $$L_{total} = 0.50 \cdot L_{MSE} + 0.30 \cdot L_{SSIM} + 0.20 \cdot L_{FFT}$$
 - **Phase 0 Review**: [PHASE0_IMPLEMENTATION_REVIEW.md](PHASE0_IMPLEMENTATION_REVIEW.md) — Data pipeline design
 - **Implementation Index**: [IMPLEMENTATION_INDEX.md](IMPLEMENTATION_INDEX.md) — Complete file reference
 
----
-
-## Performance Predictions
-
-### Phase 5: Full Training (50 epochs)
-
-- **Hardware**: Colab T4 GPU (16GB VRAM)
-- **Duration**: 8–12 hours (≈10 min/epoch)
-- **Memory**: Peak ~4–5 GB
-- **Expected losses**:
-  - MSE: 0.005–0.01 (pixel-level error)
-  - SSIM: 0.80–0.90 (structural similarity)
-  - Total: 0.01–0.02
-
-### Phase 6: Linear Probe
-
-- **Validation samples**: 24 (holdout test set)
-- **Expected AUROC**: >0.65 on ≥1 cardiometabolic condition (gate)
-
-### Phase 8: XGBoost Downstream
-
-- **Training samples**: 60 (labeled test set)
-- **Expected AUROC**: ≥0.70 on ≥2 conditions
-- **Features**: 551-dim (512 latent + 39 crafted)
-
----
-
-## Next Steps
-
-1. **Phase 5**: Run full training in Colab
-
-   - Expected: 8–12 hours on T4
-   - Output: `best_encoder.pt` checkpoint
-
-2. **Phase 6**: Linear probe evaluation
-
-   - Quick validation of learned representations
-   - Gate: AUROC >0.65
-
-3. **Phase 7**: Embeddings + features
-
-   - Extract 512-dim latent vectors for all 4,417 samples
-   - Combine with 39 hand-crafted features
-
-4. **Phase 8**: XGBoost models
-   - Train 4 downstream classifiers (diabetes, hypertension, obesity, CCI)
-   - Evaluate on 24-sample test set
-   - Export as pickle + ONNX for production API
-
----
-
 ## Citation
 
 If you use this codebase, please cite:
@@ -163,7 +112,7 @@ If you use this codebase, please cite:
 ```bibtex
 @dataset{cardiometabolic_ppg_2026,
   title={Self-Supervised Learning for Cardiometabolic Risk from PPG Signals},
-  author={Your Name},
-  year={2026},
+  author= Derek Yendoh,
+  year=2026,
   note={Based on MIMIC-III Matched Subset}
 }
